@@ -72,11 +72,39 @@ for(i in 1:922) {
     stat1a_mult_change = append(stat1a_mult_change, stat1a_mult[i])
   }
 }
-# __ patients that have multiple time stamps had changes in values
 
+#recoding to factors
+summary(stat1a$VAD)
+stat1a$VAD[which(stat1a$VAD == 0)] <- "0"
+stat1a$VAD <- as.factor(stat1a$VAD)
+summary(stat1a$VAD)
 
-#next steps: look at specific variables that have large differences between patients, explore what factors have changes
+summary(stat1a$CONT_IV_INOTROPES)
+stat1a$CONT_IV_INOTROPES[which(stat1a$CONT_IV_INOTROPES == 0)] <- "0"
+stat1a$CONT_IV_INOTROPES <- as.factor(stat1a$CONT_IV_INOTROPES)
+summary(stat1a$CONT_IV_INOTROPES)
 
+summary(stat1a$CONT_IV_INOTROPES)
+stat1a$CONT_IV_INOTROPES[which(stat1a$CONT_IV_INOTROPES == 0)] <- "0"
+stat1a$CONT_IV_INOTROPES <- as.factor(stat1a$CONT_IV_INOTROPES)
+summary(stat1a$CONT_IV_INOTROPES)
+
+stat1a$OTHER[which(stat1a$OTHER == 0)] <- "0"
+stat1a$OTHER[which(stat1a$OTHER == 1)] <- "1"
+stat1a$OTHER <- as.factor(stat1a$OTHER)
+summary(stat1a$OTHER)
+
+stat1a$LESS_SIX_MONS[which(stat1a$LESS_SIX_MONS == 0)] <- "0"
+stat1a$LESS_SIX_MONS[which(stat1a$LESS_SIX_MONS == 1)] <- "1"
+stat1a$LESS_SIX_MONS <- as.factor(stat1a$LESS_SIX_MONS)
+summary(stat1a$LESS_SIX_MONS)
+
+stat1a$REQ2_CARDIOMYOPATHY[which(stat1a$REQ2_CARDIOMYOPATHY == 0)] <- "0"
+stat1a$REQ2_CARDIOMYOPATHY[which(stat1a$REQ2_CARDIOMYOPATHY == 1)] <- "1"
+stat1a$REQ2_CARDIOMYOPATHY <- as.factor(stat1a$REQ2_CARDIOMYOPATHY)
+summary(stat1a$REQ2_CARDIOMYOPATHY)
+
+summary(stat1a)
 
 
 
