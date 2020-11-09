@@ -9,6 +9,7 @@ library(tidyverse)
 library(haven)
 library(dplyr)
 library(lubridate)
+library(xlsx)
 
 #---------------------------------------------------------------------------#
 # Read in inotrope data
@@ -300,28 +301,37 @@ inotropic.score <- merge(inotropic.score, donor.info, by="DONOR_ID")
 
 #convert everything but vasopressin into mcg/kg/hr
 inotropic.score <-mutate(inotropic.score, AGENT_VAL = case_when(
-  DOSEUNITS == "mcg/kg/min" && AGENT != "Vasopressin" ~ AGENT_VAL,
-  DOSEUNITS == "mcg/hr" && AGENT != "Vasopressin" ~ AGENT_VAL / 60 / WGT_KG_DON_CALC,
-  DOSEUNITS == "mcg/min" && AGENT != "Vasopressin" ~ AGENT_VAL / WGT_KG_DON_CALC,
-  DOSEUNITS == "mg/min" && AGENT != "Vasopressin" ~ 1000 * AGENT_VAL / WGT_KG_DON_CALC
+  DOSEUNITS == "mcg/kg/min"  ~ AGENT_VAL,
+  DOSEUNITS == "mcg/hr" ~ AGENT_VAL / 60 / WGT_KG_DON_CALC,
+  DOSEUNITS == "mcg/min" ~ AGENT_VAL / WGT_KG_DON_CALC,
+  DOSEUNITS == "mg/min" ~ 1000000 * AGENT_VAL / WGT_KG_DON_CALC,
+  DOSEUNITS == "units/hr" ~ AGENT_VAL
 ))
 
-#unable to convert from units/hr without concentration -> disregard these entries
+#Vasopressin can only be entered in as units/time, so assume any g/time is supposed to be units/time
+#convert to units/kg/min
 inotropic.score <-mutate(inotropic.score, AGENT_VAL = case_when(
-    AGENT == "Vasopressin" & 
-    DOSEUNITS != "units/hr" | AGENT != "Vasopressin" & 
-    DOSEUNITS == "units/hr" ~ NA
+  DOSEUNITS != "units/hr" && AGENT == "Vasopressin" ~ AGENT_VAL / 1000000,
+  DOSEUNITS == "units/hr" && AGENT == "Vasopressin" ~ AGENT_VAL / 60 / WGT_KG_DON_CALC,
+  TRUE ~ AGENT_VAL
 ))
 
+#unable to convert to mcg/min from units/hr disregard these entries
+inotropic.score[which(inotropic.score$AGENT != "Vasopressin" & inotropic.score$DOSEUNITS == "units/hr"),c("AGENT_VAL"
+)] <- NA
 
 #---------------------------------------------------------------------------#
-# Recode time entries to duration from first test for a patient
+# Recode time entries to duration from brain death for a patient
 #---------------------------------------------------------------------------#
 
 #format date and time column
 inotropic.score$DT <- as.POSIXct(inotropic.score$DT,
            format="%Y-%m-%dT%H:%M" #format time
 )
+
+#combine brain death and time columns
+inotropic.score$BrainDeath <- as.POSIXct(paste(inotropic.score$BRAIN_DEATH_DATE, inotropic.score$BRAIN_DEATH_TIME), format="%Y-%m-%d %H:%M:%S")
+  
 
 #fix misentries
 inotropic.score[which(inotropic.score$DONOR_ID == 331602)[1], c("DT")] <- as.POSIXct("2009-05-01 13:00:00", format="%Y-%m-%d %H:%M:%OS")
@@ -334,9 +344,8 @@ inotropic.score$Duration <- rep(NA, nrow(inotropic.score))
 inotropic.score <-
   inotropic.score %>%
   group_by(DONOR_ID) %>%
-  mutate(Duration = DT - first(DT))
-inotropic.score[is.na(inotropic.score$Duration),c("Duration")] <- as.duration(0)
-inotropic.score[which(inotropic.score$Duration < 0),c("Duration")] <- as.duration(0)
+  mutate(Duration = DT - BrainDeath)
+
 
 #convert duration from seconds to hours
 inotropic.score$Duration <- inotropic.score$Duration / 3600
@@ -446,3 +455,86 @@ inotropic.score[is.na(inotropic.score$Norepinephrine),c("Norepinephrine")] <- 0
 
 inotropic.score$Score <- inotropic.score$Dopamine + inotropic.score$Dobutamine + 100*inotropic.score$Epinephrine + 10*inotropic.score$Milrinone + 10000*inotropic.score$Vasopressin + 100*inotropic.score$Norepinephrine
 
+#---------------------------------------------------------------------------#
+# Remove unnecessary columns
+#---------------------------------------------------------------------------#
+
+#Separate brain death and time columns
+#Agent
+#Agent Value
+#Dosage units
+
+drops <- c("WGT_KG_DON_CALC","BRAIN_DEATH_DATE","BRAIN_DEATH_TIME","AGENT","AGENT_VAL","DOSEUNITS","ARCHIVED__DURATION")
+inotropic.score <- inotropic.score[ , !(names(inotropic.score) %in% drops)]
+
+
+#---------------------------------------------------------------------------#
+# Ranges
+#---------------------------------------------------------------------------#
+
+
+inotrope.ranges <- data.frame(name = "Dopamine",
+   mean = mean(inotropic.score$Dopamine, na.rm=TRUE),
+    min = min(inotropic.score$Dopamine, na.rm=TRUE),
+    max = max(inotropic.score$Dopamine, na.rm=TRUE),
+   units = "mcg/kg/min"
+  )
+
+inotrope.ranges <-
+  rbind( inotrope.ranges,
+         data.frame(name = "Dobutamine", mean = mean(inotropic.score$Dobutamine, na.rm=TRUE),
+                    min = min(inotropic.score$Dobutamine,  na.rm=TRUE),
+                    max = max(inotropic.score$Dobutamine,  na.rm=TRUE),
+                    units = "mcg/kg/min"
+         ))
+
+inotrope.ranges <-
+  rbind( inotrope.ranges,
+         data.frame(name = "Epinephrine", mean = mean(inotropic.score$Epinephrine, na.rm=TRUE),
+                    min = min(inotropic.score$Epinephrine,  na.rm=TRUE),
+                    max = max(inotropic.score$Epinephrine,  na.rm=TRUE),
+                    units = "mcg/kg/min"
+         ))
+
+inotrope.ranges <-
+  rbind( inotrope.ranges,
+         data.frame(name = "Vasopressin", mean = mean(inotropic.score$Vasopressin, na.rm=TRUE),
+                    min = min(inotropic.score$Vasopressin,  na.rm=TRUE),
+                    max = max(inotropic.score$Vasopressin,  na.rm=TRUE),
+                    units = "units/kg/min"
+         ))
+
+inotrope.ranges <-
+  rbind( inotrope.ranges,
+         data.frame(name = "Milrinone", mean = mean(inotropic.score$Milrinone, na.rm=TRUE),
+                    min = min(inotropic.score$Milrinone,  na.rm=TRUE),
+                    max = max(inotropic.score$Milrinone,  na.rm=TRUE),
+                    units = "mcg/kg/min"
+         ))
+
+inotrope.ranges <-
+  rbind( inotrope.ranges,
+         data.frame(name = "Norepinephrine", mean = mean(inotropic.score$Norepinephrine, na.rm=TRUE),
+                    min = min(inotropic.score$Norepinephrine,  na.rm=TRUE),
+                    max = max(inotropic.score$Norepinephrine,  na.rm=TRUE),
+                    units = "mcg/kg/min"
+         ))
+
+inotrope.ranges <-
+  rbind( inotrope.ranges,
+         data.frame(name = "Duration", mean = mean(inotropic.score$Duration, na.rm=TRUE),
+                    min = min(inotropic.score$Duration,  na.rm=TRUE),
+                    max = max(inotropic.score$Duration,  na.rm=TRUE),
+                    units = "hours"
+         ))
+
+inotrope.ranges <-
+  rbind( inotrope.ranges,
+         data.frame(name = "Score", mean = mean(inotropic.score$Score, na.rm=TRUE),
+                    min = min(inotropic.score$Score,  na.rm=TRUE),
+                    max = max(inotropic.score$Score,  na.rm=TRUE),
+                    units = " "
+         ))
+
+write.xlsx(inotrope.ranges, file = "donor_ranges.xlsx",
+           sheetName = "inotropic", append = FALSE)
