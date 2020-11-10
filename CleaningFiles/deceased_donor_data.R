@@ -3,8 +3,10 @@ sourcedir <-"~/4th year/SYS 4021/Source"
 
 setwd(traindir)
 donorData <- read.csv(file = 'deceased_donor_data.tsv', sep = '\t')
+crosswalk <- read.csv(file = 'cross-walk.csv')
 
 
+crosswalk$
 summary(donorData)
 colnames(donorData)
 
@@ -15,6 +17,7 @@ colnames(donorData)
 #final Data set with only people under the age of 30 and their heart was recovered
 
 newDonorData <- donorData[which(donorData$AGE_DON <= 30 & donorData$NUM_HR_RECOV == 1),]
+
 
 
 write.csv(newDonorData,"~/4th year/SYS 4021/Data/deceased_donor_cleaned.csv", row.names = FALSE)
@@ -55,3 +58,7 @@ Risk[which(is.na(newDonorData$CDC_RISK_HIV_DON))] <- 'Unknown'
 Risk
 
 barplot(table(Risk), main = "Marked as High Risk Patient", )
+
+
+finalDonorData <- merge(donorData,crosswalk, by.x = "DONOR_ID", by.y = "DONOR_ID")
+write.csv(finalDonorData,"~/4th year/SYS 4021/Data/crosswalk_joined_deceased_donor.csv", row.names = FALSE)
