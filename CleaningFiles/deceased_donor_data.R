@@ -17,15 +17,15 @@ colnames(donorData)
 newDonorData <- donorData[which(donorData$AGE_DON <= 30 & donorData$NUM_HR_RECOV == 1),]
 
 
-
-
+write.csv(newDonorData,"~/4th year/SYS 4021/Data/deceased_donor_cleaned.csv", row.names = FALSE)
+newDonorData$TATTOOS_DON
 
 
 #finding max and min of all columns
 
-results <- sapply(donorData, max, na.rm = TRUE)
-results <- sapply(donorData, min, na.rm = TRUE)
-results <- sapply(donorData, mean, na.rm = TRUE)
+results <- sapply(newdonorData, max, na.rm = TRUE)
+results <- sapply(newdonorData, min, na.rm = TRUE)
+results <- sapply(newdonorData, mean, na.rm = TRUE)
 
 install.packages('xlsx')
 library(xlsx)
@@ -42,5 +42,16 @@ Cigs[which(is.na(newDonorData$HIST_CIG_DON))] <- 'Unknown'
 
 Cigs
 
-hist(Cigs)
+
 barplot(table(Cigs), main = "History of Cigarette Usage?", )
+
+
+Risk <- rep(NA, nrow(newDonorData))
+Risk[which(newDonorData$CDC_RISK_HIV_DON == 'Y')] <- 'Yes'
+Risk[which(newDonorData$CDC_RISK_HIV_DON == 'N')] <- 'No'
+Risk[which(newDonorData$CDC_RISK_HIV_DON == 'U')] <- 'Unknown'
+Risk[which(is.na(newDonorData$CDC_RISK_HIV_DON))] <- 'Unknown'
+
+Risk
+
+barplot(table(Risk), main = "Marked as High Risk Patient", )
