@@ -28,6 +28,7 @@ data <- merge(data, donor.info, by="DONOR_ID")
 #combine brain death and time columns
 data$BrainDeath <- as.POSIXct(paste(data$BRAIN_DEATH_DATE, data$BRAIN_DEATH_TIME), format="%Y-%m-%d %H:%M:%S")
 
+#combine BEGIN_DT and DT columns (different column names in merged files)
 data <-mutate(data, DT = case_when(
   BEGIN_DT == "" ~ DT,
   BEGIN_DT != "" ~ BEGIN_DT
