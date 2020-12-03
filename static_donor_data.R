@@ -68,4 +68,5 @@ static.data <-mutate(static.data, age.group = case_when(
 drops <- c("BRAIN_DEATH_DATE","BRAIN_DEATH_TIME", "DON_ID", "TRR_ID_CODE","DOB_DON","DOB","AGE_DON","age" )
 static.data <- static.data[ , !(names(static.data) %in% drops)]
 
-write_csv(static.data,"static_donor_info")
+setwd(data_dir)
+write_csv(static.data,"static_donor_info.csv")
