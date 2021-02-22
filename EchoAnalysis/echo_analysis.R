@@ -16,8 +16,8 @@ echo_data <- read_csv("PRODSOMRUNOS_DATA_LABELS_2021-02-15_0902.csv")
 
 #add index column to help with sorting
 echo_data$index <- which(echo_data$`Donor ID` == echo_data$`Donor ID`)
-echo_data$Qualitative_Status <- NA
-echo_data$Quantitative_Status <- NA
+echo_data$Qualitative_Status <- rep(NA, nrow(echo_data))
+echo_data$Quantitative_Status <- rep(NA, nrow(echo_data))
 
 #Old analysis
 
@@ -73,7 +73,7 @@ qualitative_modsev <- which((echo_data$`Global Left Ventricular Dysfunction` == 
                              | echo_data$`Focal Left Ventricular Free Wall Dysfunction` == "Moderate - 2" | 
                               echo_data$`Focal Left Ventricular Free Wall Dysfunction` == "Severe - 3" |
                               echo_data$`Focal Right Ventricular Free Wall Dysfunction`== "Moderate - 2" |
-                              echo_data$`Focal Right Ventricular Free Wall Dysfunction`== "Severe" | 
+                              echo_data$`Focal Right Ventricular Free Wall Dysfunction`== "Severe - 3" | 
                               echo_data$`Focal Interventricular Septal Dysfunction` == "Moderate - 2" | 
                               echo_data$`Focal Interventricular Septal Dysfunction` == "Severe - 3")
 
@@ -86,7 +86,7 @@ qualitative_mild <- which(( echo_data_sans_qualmodsev$`Global Left Ventricular D
                             (echo_data_sans_qualmodsev$`Focal Right Ventricular Free Wall Dysfunction` == "Mild - 1")
                           | echo_data_sans_qualmodsev$`Focal Interventricular Septal Dysfunction` == "Mild - 1" )
 
-echo_data_qualmild <- echo_data[c(qualitative_mild),]
+echo_data_qualmild <- echo_data_sans_qualmodsev[c(qualitative_mild),]
 echo_data_qualmodsev <- echo_data[c(qualitative_modsev),]
 echo_data_qualnormal <- echo_data_sans_qualmodsev[-c(qualitative_mild),]
 
@@ -95,8 +95,8 @@ echo_data_qualmodsev$Qualitative_Status <- 2
 echo_data_qualnormal$Qualitative_Status <- 0
 
 #rebuild the set after coding new values
-temp1 <- rbind(echo_data_qualmild, echo_data_qualmodsev)
-new_echo <- rbind(temp1,echo_data_qualnormal)
+new_echo <- rbind(echo_data_qualmild, echo_data_qualmodsev,echo_data_qualnormal)
+
 
 
 
