@@ -21,7 +21,10 @@ data$Duration = data$DT - data$BrainDeath
 data$Duration = data$Duration / 3600
 data$Duration = as.numeric(data$Duration)
 
+just_echo_matches <- data[which(data$`Repeat Instrument` == "ECHO"),]
+
 #write to csv file
 write.csv(data, "~/4th year/STS Capstone/full7100wEchoduration.csv", row.names = FALSE)
+write.csv(just_echo_matches, "~/4th year/STS Capstone/EchoMatchesw7100.csv", row.names = FALSE)
 
 
