@@ -6,6 +6,7 @@ library(ggplot2)
 library(tidyverse)
 
 #used after sorting echo to top of data
+#may have parsing issues
 data = read_csv("full7100wEcho.csv")
 data$DT = as.POSIXct(data$DT, format = "%m/%d/%Y %H:%M" )
 data$BrainDeath = as.POSIXct(data$BrainDeath, format = "%m/%d/%Y %H:%M" )

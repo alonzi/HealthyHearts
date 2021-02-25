@@ -57,14 +57,15 @@ lab_panels2<- subset(lab_panels2, select = -c(BRAIN_DEATH_DATE,BRAIN_DEATH_TIME)
 lab_values2<- subset(lab_values2, select = -c(BRAIN_DEATH_DATE,BRAIN_DEATH_TIME))
 echo2<- subset(echo2, select = -c(index))
 
+# point to steps on how to set up postgres
 con2 <- dbConnect(RPostgres::Postgres(),dbname = 'HealthyHearts2', 
                  host = 'localhost', # i.e. 'ec2-54-83-201-96.compute-1.amazonaws.com'
                  port = 5432, # or any other port specified by your DBA
                  user = 'postgres',
                  password = 'Hearts123')
 
-#missing deceased donor
-dbWriteTable(con2, "crosswalk21", crosswalk2, overwrite = TRUE)
+
+dbWriteTable(con2, "crosswalk2", crosswalk2, overwrite = TRUE)
 dbWriteTable(con2, "abgs2", abgs2, overwrite = TRUE)
 dbWriteTable(con2, "cbc2", cbc2, overwrite = TRUE)
 dbWriteTable(con2, "indicators2", indicators2, overwrite = TRUE)
