@@ -27,9 +27,15 @@ Create Table BIG_TABLE5 AS
 FROM big_table4
 FULL JOIN labvalues2
 USING ("DONOR_ID", "DT", "BrainDeath", "Accepted", "DON_ID", "TRR_ID_CODE","DOB_DON","DOB"));   
+
+Create Table Height_weight_table AS
+(SELECT *
+FROM big_table5
+FULL JOIN height_weight
+USING ("DONOR_ID")); 
 	   
 Create Table FINAL_TABLE AS
 (SELECT *
-FROM big_table5
+FROM height_weight_table
 FULL JOIN echo2
 USING ("DON_ID", "DT")); 

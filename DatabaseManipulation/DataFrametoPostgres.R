@@ -48,6 +48,7 @@ inotropic.score2 <- read.csv(file = 'inotropic.score_joined_full_crosswalk.csv')
 lab_panels2 <- read.csv(file = 'labpanels_full_crosswalk_joined.csv')
 lab_values2 <- read.csv(file = 'labvalues_full_crosswalk_joined.csv')
 echo2 <- read.csv(file = 'echo_w_analysis.csv', check.names = FALSE)
+d_donor <- read.csv(file = 'deceased_donor_cleaned.csv')
 
 #rename columns
 colnames(echo2)[names(echo2) == "Donor ID"] <- "DON_ID"
@@ -56,6 +57,12 @@ colnames(echo2)[names(echo2) == "Donor ID"] <- "DON_ID"
 lab_panels2<- subset(lab_panels2, select = -c(BRAIN_DEATH_DATE,BRAIN_DEATH_TIME))
 lab_values2<- subset(lab_values2, select = -c(BRAIN_DEATH_DATE,BRAIN_DEATH_TIME))
 echo2<- subset(echo2, select = -c(index))
+
+#just get height for d_donor w donor_id
+colnames(d_donor)[names(d_donor) == "HGT_CM_DON_CALC"] <- "Height"
+colnames(d_donor)[names(d_donor) == "WGT_KG_DON_CALC"] <- "Weight"
+
+height_weight <- subset(d_donor, select = c(DONOR_ID, Height, Weight))
 
 # point to steps on how to set up postgres
 con2 <- dbConnect(RPostgres::Postgres(),dbname = 'HealthyHearts2', 
@@ -73,4 +80,6 @@ dbWriteTable(con2, "inotropicscore2", inotropic.score2, overwrite = TRUE)
 dbWriteTable(con2, "labpanels2", lab_panels2, overwrite = TRUE)
 dbWriteTable(con2, "labvalues2", lab_values2, overwrite = TRUE)
 dbWriteTable(con2, "echo2", echo2, overwrite = TRUE)
+dbWriteTable(con2, "height_weight", height_weight, overwrite = TRUE)
+
 
