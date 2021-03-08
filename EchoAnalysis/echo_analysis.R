@@ -12,7 +12,7 @@ library(GGally)
 library(ggpubr)
 library(xlsx)
 
-echo_data <- read_csv("PRODSOMRUNOS_DATA_LABELS_2021-02-15_0902.csv")
+echo_data <- read_csv("PRODSOMRUNOS_DATA_LABELS_2021-03-02_1935.csv")
 
 #add index column to help with sorting
 echo_data$index <- which(echo_data$`Donor ID` == echo_data$`Donor ID`)
@@ -157,7 +157,7 @@ qlsev_qnmild <- length(which((final_set$Qualitative_Status == "Moderate/Severe")
 qlsev_qnnorm <- length(which((final_set$Qualitative_Status == "Moderate/Severe") & (final_set$Quantitative_Status == "Normal")))
 
 #make DT column
-final_set$DT <- as.POSIXct(paste(final_set$`Study Date`, final_set$`Study Time`), format="%m/%d/%y %H:%M:%S")
+final_set$DT <- as.POSIXct(paste(final_set$`Study Date`, final_set$`Study Time`), format="%m/%d/%Y %H:%M:%S", tz = "EST")
 
 #drop unnecessary columns
 final_set<- subset(final_set, select = -c(`Study Date`,`Study Time`))
