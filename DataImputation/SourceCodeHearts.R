@@ -162,6 +162,100 @@ rm_var95 <- function(df){
 
 }
 
+#imputing data based on median
+impute_med <- function(df){
+  if(is.data.frame(df) == TRUE){
+    df.cat <- df[,c(45:53)] #only categorical data to do imputation and bind later
+    df.num <- df[-c(45:53)] #only numerical data to do imputation and bind later
+    
+    df.num.median <- na_mean(df.num, option = "median") #imputing median for all data
+    df.median <- cbind(df.num.median,df.cat) #bind back to categorical
+
+    return(df.median)
+  }
+  
+  else{
+    stop("Input is not a data frame")
+  }
+}
+
+
+#imputing data based on the median and age groups
+impute_age_med <- function(df){
+  if(is.data.frame(df) == TRUE){
+    
+    df.0to6Months <- df[which(df$age.group == "0-6 months"),]
+    df.6to12Months <- df[which(df$age.group == "6-12 months"),]
+    df.1to3Years <- df[which(df$age.group == "1-3 years"),]
+    #df.3to6Years <- df[which(df$age.group == "3-6 years"),] no data
+    df.6to12Years <- df[which(df$age.group == "6-12 years"),]
+    df.12plusYears <- df[which(df$age.group == "12+ years"),]
+    
+    df.0to6Months.med <- na.mean(df.0to6Months, option = "median") # Median Imputation
+    df.6to12Months.med <- na.mean(df.6to12Months, option = "median") # Median Imputation
+    df.1to3Years.med <- na.mean(df.1to3Years, option = "median") # Median Imputation
+    df.6to12Years.med <- na.mean(df.6to12Years, option = "median") # Median Imputation
+    df.12plusYears.med <- na.mean(df.12plusYears, option = "median") # Median Imputation
+
+    df.age.med <- rbind(df.0to6Months.med,df.6to12Months.med,df.1to3Years.med,df.6to12Years.med,df.12plusYears.med)
+    return(df.age.med)
+    }
+  
+  else{
+    stop("Input is not a data frame")
+  }
+}
+#impute median of variables with less than 95% null and age groups
+impute_age_med95 <- function(df){
+  if(is.data.frame(df) == TRUE){
+    var_drop <- rm_var95(df) #list of variables who have more than 95% of data missing
+    
+    
+    df.0to6Months <- df[which(df$age.group == "0-6 months"),]
+    df.0to6Months.95 <- df.0to6Months[!names(df.0to6Months) %in% var_drop]
+    df.6to12Months <- df[which(df$age.group == "6-12 months"),]
+    df.6to12Months.95 <- df.6to12Months[!names(df.6to12Months) %in% var_drop]
+    df.1to3Years <- df[which(df$age.group == "1-3 years"),]
+    df.1to3Years.95 <- df.1to3Years[!names(df.1to3Years) %in% var_drop]
+    #df.3to6Years <- df[which(df$age.group == "3-6 years"),] no data
+    df.6to12Years <- df[which(df$age.group == "6-12 years"),]
+    df.6to12Years.95 <- df.6to12Years[!names(df.6to12Years) %in% var_drop]
+    df.12plusYears <- df[which(df$age.group == "12+ years"),]
+    df.12plusYears.95 <- df.12plusYears[!names(df.12plusYears) %in% var_drop]
+    
+    df.0to6Months.95.med <- na.mean(df.0to6Months.95, option = "median") # Median Imputation for <95%
+    df.6to12Months.95.med <- na.mean(df.6to12Months.95, option = "median") # Median Imputation for <95%
+    df.1to3Years.95.med <- na.mean(df.1to3Years.95, option = "median") # Median Imputation for <95%
+    df.6to12Years.95.med <- na.mean(df.6to12Years.95, option = "median") # Median Imputation for <95%
+    df.12plusYears.95.med <- na.mean(df.12plusYears.95, option = "median") # Median Imputation for <95%
+    
+    df.95.age.med <- rbind(df.0to6Months.95.med,df.6to12Months.95.med,df.1to3Years.95.med,df.6to12Years.95.med,df.12plusYears.95.med)
+    return(df.95.age.med)
+  }
+  else{
+    stop("Input is not a data frame")
+  }
+}
+
+
+#imputing data based on median
+impute_med95 <- function(df){
+  if(is.data.frame(df) == TRUE){
+    var_drop <- rm_var95(df) #list of variables who have more than 95% of data missing
+    df.cat <- df[,c(45:53)] #only categorical data to do imputation and bind later
+    df.num <- df[-c(45:53)] #only numerical data to do imputation and bind later
+    df.num.95 <- df[!names(df.num) %in% var_drop] #df of only variables with less than 95% of data missing
+    
+    df.num.95.med <- na_mean(df.num.95, option = "median") #imputing median for all data
+    df.95.median <- cbind(df.num.95.med,df.cat) #bind back to categorical
+    return(df.95.median)
+  }
+  
+  else{
+    stop("Input is not a data frame")
+  }
+}
+
 
 
 
