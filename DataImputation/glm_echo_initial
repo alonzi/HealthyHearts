@@ -1,0 +1,120 @@
+# load data 
+
+library(dplyr)
+library(plyr)
+library(ggplot2)
+library(tidyverse)
+library(GGally)
+library(ggpubr)
+library(MASS)
+library(lubridate)
+library(lindia)
+library(mice)
+library(imputeTS)
+
+# read in the data
+source_dir = "C:/Users/ianpe/Documents/UVA/Fourth Year/Capstone"
+data_dir = "C:/Users/ianpe/Documents/UVA/Fourth Year/Capstone"
+setwd(data_dir)
+data <- read.csv("EchoMatchesw7100.csv")
+ranges <- read_csv("variable_ranges.csv")
+
+# clean data using function
+setwd(source_dir)
+source("SourceCodeHearts.R")
+data.clean <- echo_clean(data)
+data.echo <- echo_sort(data.clean)
+data.echo$Accepted <- as.factor(data.echo$Accepted)
+data.echo$DON_ID <- as.factor(data.echo$DON_ID)
+data.echo$Mitral.valve.insufficiency <- as.factor(data.echo$Mitral.valve.insufficiency)
+data.echo$Aortic.valve.insufficiency <- as.factor(data.echo$Aortic.valve.insufficiency)
+data.echo$Tricuspid.valve.insufficiency <- as.factor(data.echo$Tricuspid.valve.insufficiency)
+data.echo$Pulmonary.valve.insufficiency <- as.factor(data.echo$Pulmonary.valve.insufficiency)
+data.echo$Global.Left.Ventricular.Dysfunction <- as.factor(data.echo$Global.Left.Ventricular.Dysfunction)
+data.echo$Global.Right.Ventricular.Dysfunction <- as.factor(data.echo$Global.Right.Ventricular.Dysfunction)
+
+nas.missing <- var_missing(data)
+length(unique(data$DON_ID))
+
+# create binary variable to use as response
+data.echo$qual.nextecho.bin <- rep(NA, nrow(data.echo))
+data.echo$quant.nextecho.bin <- rep(NA, nrow(data.echo))
+
+data.echo$qual.nextecho.bin[which(data.echo$qual.nextecho != 2)] <- 0
+data.echo$qual.nextecho.bin[which(data.echo$qual.nextecho == 2)] <- 1
+data.echo$quant.nextecho.bin[which(data.echo$quant.nextecho != 2)] <- 0
+data.echo$quant.nextecho.bin[which(data.echo$quant.nextecho == 2)] <- 1
+
+data.imp.med <- impute_med(data.echo)
+data.age.imp.med <- impute_age_med(data.echo)
+data.imp.med95 <- impute_med95(data.echo)
+data.age.imp.med95 <- impute_age_med95(data.echo)
+
+# ok so I still do not know what the response variable is going to be
+# I think you should just do it with the quant/qual binary but mention that we need to change
+# it later
+drops <- c("DT","DONOR_ID","BrainDeath","","DOB_DON","TRR_ID_CODE", "DOB","AGENT_END_DT","CKMB","Focal.Left.Ventricular.Free.Wall.Dysfunction","Focal.Interventricular.Septal.Dysfunction","Focal.Right.Ventricular.Free.Wall.Dysfunction")
+
+
+data.imp.med <- data.imp.med[!names(data.imp.med) %in% drops]
+data.age.imp.med <- data.age.imp.med[!names(data.age.imp.med) %in% drops]
+data.imp.med95 <- data.imp.med95[!names(data.imp.med95) %in% drops]
+data.age.imp.med95 <- data.age.imp.med95[!names(data.age.imp.med95) %in% drops]
+
+# matrices of % missing
+imp.med.miss <- var_missing(data.imp.med)
+age.imp.med.miss <- var_missing(data.age.imp.med)
+imp.med95.miss <- var_missing(data.imp.med95)
+age.imp.med95.miss <- var_missing(data.age.imp.med95)
+
+var.glm <- c("DONOR_ID","Accepted","ABG_PH","PAO2","PEEP","Repeat.Instance",
+             "X4.Chamber.Ejection.Fraction.%","Shortening.Fraction.%","Mitral.valve.insufficiency",
+             "Aortic.valve.insufficiency","Tricuspid.valve.insufficiency","Pulmonary.valve.insufficiency",
+             "Global.Left.Ventricular.Dysfunction","Global.Right.Ventricular.Dysfunction",
+             "Quantitative_Status","Qualitative_Status","Duration","Age","age.group",
+             "qual.nextecho.bin","quant.nextecho.bin")
+
+data.imp.med <- data.imp.med[names(data.imp.med) %in% var.glm]
+data.age.imp.med <- data.age.imp.med[names(data.age.imp.med) %in% var.glm]
+data.imp.med95 <- data.imp.med95[names(data.imp.med95) %in% var.glm]
+data.age.imp.med95 <- data.age.imp.med95[names(data.age.imp.med95) %in% var.glm]
+
+# only include complete cases to do glm
+data.med.cc <- na.omit(data.imp.med) 
+data.age.med.cc <- na.omit(data.age.imp.med)
+data.med95.cc <- na.omit(data.imp.med95) 
+data.age.med95.cc <- na.omit(data.age.imp.med95)
+
+# glm next echo quant
+
+data.med.cc.quant.glm <- step(glm(quant.nextecho.bin ~., data = data.med.cc, family = binomial))
+data.age.med.cc.quant.glm <- step(glm(quant.nextecho.bin ~., data = data.age.med.cc, family = binomial))
+data.med95.cc.quant.glm <- step(glm(quant.nextecho.bin ~., data = data.med95.cc, family = binomial))
+data.age.med95.cc.quant.glm <- step(glm(quant.nextecho.bin ~., data = data.age.med95.cc, family = binomial))
+
+summary(data.med.cc.quant.glm)
+summary(data.age.med.cc.quant.glm)
+summary(data.med95.cc.quant.glm)
+summary(data.age.med95.cc.quant.glm)
+
+# glm next echo qual
+
+
+
+data.med.cc.qual.glm <- step(glm(qual.nextecho.bin ~., data = data.med.cc, family = binomial))
+data.age.med.cc.qual.glm <- step(glm(qual.nextecho.bin ~., data = data.age.med.cc, family = binomial))
+data.med95.cc.qual.glm <- step(glm(qual.nextecho.bin ~., data = data.med95.cc, family = binomial))
+data.age.med95.cc.qual.glm <- step(glm(qual.nextecho.bin ~., data = data.age.med95.cc, family = binomial))
+
+summary(data.med.cc.qual.glm)
+summary(data.age.med.cc.qual.glm)
+summary(data.med95.cc.qual.glm)
+summary(data.age.med95.cc.qual.glm)
+
+#based on the analysis, the best two data to use is the ones' whose imp were done by age first
+
+anova(data.age.med.cc.qual.glm,data.age.med95.cc.qual.glm)
+anova(data.age.med.cc.quant.glm,data.age.med95.cc.quant.glm)
+AIC(data.age.med.cc.qual.glm)
+AIC(data.age.med95.cc.qual.glm)
+
