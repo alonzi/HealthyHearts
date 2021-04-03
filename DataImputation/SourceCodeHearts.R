@@ -256,6 +256,27 @@ impute_med95 <- function(df){
   }
 }
 
-
+#function that given the donor id and duration time, outputs the row of measurements
+#from that dataframe at the same or closest time before duration given
+donor_info_time <- function(df, donor_id, time) {
+  
+  donor_info = df[which(df$DONOR_ID == donor_id), ]
+  donor_duration = donor_info[which(donor_info$Duration <= time), ]
+  #getting duration value of the measurement equal to or closest to specified duration
+  most_recent = donor_duration[which.max(donor_duration$Duration), ]
+  closest_val = most_recent$Duration
+  
+  #in the case of multiple measurements at same time, returning both
+  closest_meas = donor_duration[which(donor_duration$Duration == closest_val), ]
+  #print(most_recent)
+  #return message if there is no measurement 
+  if (dim(closest_meas)[1] == 0){
+    return("No measurements taken on or before specified time after brain death.")
+  }
+  else{
+    return(closest_meas)
+  }
+  
+}
 
 
