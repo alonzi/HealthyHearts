@@ -12,7 +12,7 @@ library(GGally)
 library(ggpubr)
 library(xlsx)
 
-echo_data <- read_csv("PRODSOMRUNOS_DATA_LABELS_2021-03-02_1935.csv")
+echo_data <- read_csv("Full Data as of 3-31-21.csv")
 
 #add index column to help with sorting
 echo_data$index <- which(echo_data$`Donor ID` == echo_data$`Donor ID`)
@@ -72,8 +72,6 @@ qualitative_modsev <- which((echo_data$`Global Left Ventricular Dysfunction` == 
                               (echo_data$`Global Right Ventricular Dysfunction` == "Severe - 3")
                              | echo_data$`Focal Left Ventricular Free Wall Dysfunction` == "Moderate - 2" | 
                               echo_data$`Focal Left Ventricular Free Wall Dysfunction` == "Severe - 3" |
-                              echo_data$`Focal Right Ventricular Free Wall Dysfunction`== "Moderate - 2" |
-                              echo_data$`Focal Right Ventricular Free Wall Dysfunction`== "Severe - 3" | 
                               echo_data$`Focal Interventricular Septal Dysfunction` == "Moderate - 2" | 
                               echo_data$`Focal Interventricular Septal Dysfunction` == "Severe - 3")
 
@@ -83,8 +81,7 @@ echo_data_sans_qualmodsev <- echo_data[-c(qualitative_modsev),]
 qualitative_mild <- which(( echo_data_sans_qualmodsev$`Global Left Ventricular Dysfunction` == ("Mild - 1")) | 
                             (echo_data_sans_qualmodsev$`Global Right Ventricular Dysfunction` == ("Mild - 1")) | 
                             (echo_data_sans_qualmodsev$`Focal Left Ventricular Free Wall Dysfunction` == "Mild - 1")|
-                            (echo_data_sans_qualmodsev$`Focal Right Ventricular Free Wall Dysfunction` == "Mild - 1")
-                          | echo_data_sans_qualmodsev$`Focal Interventricular Septal Dysfunction` == "Mild - 1" )
+                            echo_data_sans_qualmodsev$`Focal Interventricular Septal Dysfunction` == "Mild - 1" )
 
 echo_data_qualmild <- echo_data_sans_qualmodsev[c(qualitative_mild),]
 echo_data_qualmodsev <- echo_data[c(qualitative_modsev),]
