@@ -178,6 +178,8 @@ var_missing_dur <- function(df){
 }
 
 missing_df_mrm <- var_missing_dur(df_new_mrm)
+#writing a csv so table can be uploaded into the paper
+write.csv(missing_df_mrm,"C:/Users/ianpe/Documents/UVA/Fourth Year/Capstone/missing_mrm.csv", row.names = TRUE)
 
 # find out the NA ratios
 
@@ -281,14 +283,13 @@ methods(mice)
 imp_num <- mice(df_num, meth="pmm", m = 10)
 imp_num$meth
 completedData_num <- complete(imp_num,1)
-densityplot(imp_num)
-
+densityplot(imp_num, title(main = "Density plot for Numerical Measurements"))
 
 # impute for categorical value
 imp_cate <- mice(df_cate, meth="pmm", m = 10)
 imp_cate$meth
 completedData_cate <- complete(imp_cate,1)
-densityplot(imp_cate)
+densityplot(imp_cate, title(main = "Density plot for Categorical Measurements"))
 
 # join the datasets
 basic_info <- cbind(df_donor_info)
@@ -296,5 +297,8 @@ echo_data <- cbind(completedData_num,completedData_cate)
 imputed_7100 <- cbind(basic_info,echo_data)
 
 write.csv(imputed_7100,"C:/Users/ianpe/Documents/UVA/Fourth Year/Capstone/imputed_7100.csv", row.names = FALSE)
+
+
+
 
 
