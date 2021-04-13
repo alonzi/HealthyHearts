@@ -59,7 +59,7 @@ df.24dur <- mrm_df_time(df,24)
 
 ### going to use 24 hours as the test df
 drop_col <- c(1:4,6:8,18)
-#df <- df %>% select(-c(DONOR_ID,DT,DONOR_ID,BrainDeath,Vasopressin,TRR_ID_CODE,DOB_DON,DOB,ï..,DON_ID))
+#df <- df %>% select(-c(DONOR_ID,DT,DONOR_ID,BrainDeath,Vasopressin,TRR_ID_CODE,DOB_DON,DOB,Ã¯..,DON_ID))
 df.24dur <- df.24dur[,-drop_col] #the line above is buggy but those are the dropped columns
 #vasopressin is dropped because the distribution is skewed
 
@@ -112,6 +112,11 @@ df.24dur = subset(df.24dur, select = -c(Mitral.valve.insufficiency_2,Aortic.valv
 
 
 ## Splitting training and test data for 6 hours
+df_2 <- df.24dur[,-2]
+sample_2 <- sample.int(n = nrow(df_2), size = floor(.80*nrow(df_2)), replace = F)
+train_2 <- df_2[sample_2, ]
+test_2 <- df_2[-sample_2, ]
+
 
 summary(df.24dur)
 str(df.24dur)
@@ -125,11 +130,12 @@ train
 
 
 ## Model Creation
-model <- glm(Accepted ~ Age + Duration + Weight + Height + Global.Left.Ventricular.Dysfunction_0 +
+model <- glm(Accepted ~ Age + Weight + Height + AVG_BP_SYST + AVG_BP_DIAST + AVG_PULSE_RANGE_START +
+               CVP_INT_RANGE_START + BODYTEMP_RANGE_START + Global.Left.Ventricular.Dysfunction_0 +
                Global.Left.Ventricular.Dysfunction_1 + Global.Left.Ventricular.Dysfunction_2 +
                Qualitative_Status_0 + Quantitative_Status_0 + Qualitative_Status_1 + 
-               Quantitative_Status_1 + Score + X4.Chamber.Ejection.Fraction.. + 
-               Shortening.Fraction..,family=binomial(link='logit'),data=train,maxit = 200)
+               Quantitative_Status_1 + Score + X4.Chamber.Ejection.Fraction.. + Shortening.Fraction..,family=binomial(link='logit'),data=train,maxit = 200)
+
 
 ## Model Summary
 summary(model)
@@ -151,19 +157,20 @@ confusionMatrix(data=result, reference=as.factor(test$Accepted))
 
 sum(test$Accepted)
 
+
 ## ROC Curve and calculating the area under the curve(AUC)
 library(ROCR)
 predictions <- predict(model, newdata=df.24dur, type="response")
 ROCRpred <- prediction(predictions, df.24dur$Accepted)
 ROCRperf <- performance(ROCRpred, measure = "tpr", x.measure = "fpr")
 
-plot(ROCRperf, colorize = TRUE, text.adj = c(-0.2,1.7), print.cutoffs.at = seq(0,1,0.1))
+plot(ROCRperf, colorize = TRUE, text.adj = c(-0.2,1.7), print.cutoffs.at = seq(0,1,0.1))#, title(main = "ROC Curve for Predicted Values"))
 
 auc <- performance(ROCRpred, measure = "auc")
 auc <- auc@y.values[[1]]
 auc
 
-## correlation matrix and visualizations
+## correlation matrix and visulizations
 
 ## plot 1
 library(Hmisc)
@@ -178,7 +185,7 @@ corrplot(res, type = "upper", order = "hclust",
          tl.col = "black", tl.srt = 45)
 
 col<- colorRampPalette(c("blue", "white", "red"))(100)
-heatmap(x = res, col = col, symm = TRUE)
+heatmap(x = res, col = col, symm = TRUE, main = "Correlation between Factors 24 hours after brain death")
 
 ## plot 3
 library(heatmaply)
