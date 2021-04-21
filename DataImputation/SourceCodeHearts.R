@@ -279,4 +279,15 @@ donor_info_time <- function(df, donor_id, time) {
   
 }
 
+#calculating schwartz score
+schwartz_calc <- function(df){
+  df$Schwartz <- (0.413*df$Height) / df$CREATININE
+}
+df_new$Schwartz <- schwartz_calc(df_new)
+
+#calcluating MELD score
+meld_calc <- function(df){
+  df$MELD <- 3.78*log(df$BILIRUBIN) + 11.2*log(df$INR) + 9.57*log(df$CREATININE) + 6.43
+}
+
 
