@@ -142,119 +142,61 @@ var_missing_AG <- function(df){
   }
 }
 
-# create function that removes variables with more than 95% data missing
-rm_var95 <- function(df){
-  if(is.data.frame(df) == TRUE){
-    miss_varmat <- var_missing(df)
-    varmat_col <- ncol(miss_varmat)
-    drop_col <- c()
-    for(i in 1:varmat_col){
-      if(miss_varmat[1,i] > 0.95){
-        drop_col <- c(colnames(miss_varmat)[i],drop_col)
-      }
-      else{}
+#returns a vector of the most recent measurements for that donor at that time
+mrm_donor_time <- function(df, donor_id, time) {
+  
+  donor_info <- df[which(df$DONOR_ID == donor_id), ]
+  donor_duration <- donor_info[which(donor_info$Duration <= time), ]
+  if(((max(donor_duration$Duration) <= time) == TRUE) & (is.infinite(max(donor_duration$Duration)) == FALSE)){
+    
+    #checks if there is a measurement at or before that time
+    donor_duration <- donor_duration[order(donor_duration[,c("Duration")],decreasing = TRUE),]
+    #getting duration value of the measurement equal to or closest to specified duration
+    #next observation carried forward
+    if(nrow(donor_duration) > 1){ #checks for multiple observations 
+      donor_duration <- donor_duration %>% mutate(donor_duration,na.locf(donor_duration,fromLast = TRUE, na.rm = FALSE))
     }
-    return(drop_col)
-  }
-  else{
-    stop("Input is not a data frame")
-  }
-
-}
-
-#imputing data based on median
-impute_med <- function(df){
-  if(is.data.frame(df) == TRUE){
-    df.cat <- df[,c(45:53)] #only categorical data to do imputation and bind later
-    df.num <- df[-c(45:53)] #only numerical data to do imputation and bind later
-    
-    df.num.median <- na_mean(df.num, option = "median") #imputing median for all data
-    df.median <- cbind(df.num.median,df.cat) #bind back to categorical
-
-    return(df.median)
-  }
-  
-  else{
-    stop("Input is not a data frame")
-  }
-}
-
-
-#imputing data based on the median and age groups
-impute_age_med <- function(df){
-  if(is.data.frame(df) == TRUE){
-    
-    df.0to6Months <- df[which(df$age.group == "0-6 months"),]
-    df.6to12Months <- df[which(df$age.group == "6-12 months"),]
-    df.1to3Years <- df[which(df$age.group == "1-3 years"),]
-    #df.3to6Years <- df[which(df$age.group == "3-6 years"),] no data
-    df.6to12Years <- df[which(df$age.group == "6-12 years"),]
-    df.12plusYears <- df[which(df$age.group == "12+ years"),]
-    
-    df.0to6Months.med <- na.mean(df.0to6Months, option = "median") # Median Imputation
-    df.6to12Months.med <- na.mean(df.6to12Months, option = "median") # Median Imputation
-    df.1to3Years.med <- na.mean(df.1to3Years, option = "median") # Median Imputation
-    df.6to12Years.med <- na.mean(df.6to12Years, option = "median") # Median Imputation
-    df.12plusYears.med <- na.mean(df.12plusYears, option = "median") # Median Imputation
-
-    df.age.med <- rbind(df.0to6Months.med,df.6to12Months.med,df.1to3Years.med,df.6to12Years.med,df.12plusYears.med)
-    return(df.age.med)
+    else{
+      donor_duration <- donor_duration
     }
-  
-  else{
-    stop("Input is not a data frame")
-  }
-}
-#impute median of variables with less than 95% null and age groups
-impute_age_med95 <- function(df){
-  if(is.data.frame(df) == TRUE){
-    var_drop <- rm_var95(df) #list of variables who have more than 95% of data missing
-    
-    
-    df.0to6Months <- df[which(df$age.group == "0-6 months"),]
-    df.0to6Months.95 <- df.0to6Months[!names(df.0to6Months) %in% var_drop]
-    df.6to12Months <- df[which(df$age.group == "6-12 months"),]
-    df.6to12Months.95 <- df.6to12Months[!names(df.6to12Months) %in% var_drop]
-    df.1to3Years <- df[which(df$age.group == "1-3 years"),]
-    df.1to3Years.95 <- df.1to3Years[!names(df.1to3Years) %in% var_drop]
-    #df.3to6Years <- df[which(df$age.group == "3-6 years"),] no data
-    df.6to12Years <- df[which(df$age.group == "6-12 years"),]
-    df.6to12Years.95 <- df.6to12Years[!names(df.6to12Years) %in% var_drop]
-    df.12plusYears <- df[which(df$age.group == "12+ years"),]
-    df.12plusYears.95 <- df.12plusYears[!names(df.12plusYears) %in% var_drop]
-    
-    df.0to6Months.95.med <- na.mean(df.0to6Months.95, option = "median") # Median Imputation for <95%
-    df.6to12Months.95.med <- na.mean(df.6to12Months.95, option = "median") # Median Imputation for <95%
-    df.1to3Years.95.med <- na.mean(df.1to3Years.95, option = "median") # Median Imputation for <95%
-    df.6to12Years.95.med <- na.mean(df.6to12Years.95, option = "median") # Median Imputation for <95%
-    df.12plusYears.95.med <- na.mean(df.12plusYears.95, option = "median") # Median Imputation for <95%
-    
-    df.95.age.med <- rbind(df.0to6Months.95.med,df.6to12Months.95.med,df.1to3Years.95.med,df.6to12Years.95.med,df.12plusYears.95.med)
-    return(df.95.age.med)
+    most_recent <- donor_duration[which.max(donor_duration$Duration), ]
+    return(most_recent)
   }
   else{
-    stop("Input is not a data frame")
+    temp_row <- donor_info[1,] #temporary row that will be removed in a later function that calls this one
+    temp_row <- rep(NA)
+    return(temp_row)
   }
 }
 
-
-#imputing data based on median
-impute_med95 <- function(df){
-  if(is.data.frame(df) == TRUE){
-    var_drop <- rm_var95(df) #list of variables who have more than 95% of data missing
-    df.cat <- df[,c(45:53)] #only categorical data to do imputation and bind later
-    df.num <- df[-c(45:53)] #only numerical data to do imputation and bind later
-    df.num.95 <- df[!names(df.num) %in% var_drop] #df of only variables with less than 95% of data missing
-    
-    df.num.95.med <- na_mean(df.num.95, option = "median") #imputing median for all data
-    df.95.median <- cbind(df.num.95.med,df.cat) #bind back to categorical
-    return(df.95.median)
+#function that gives a data frame of all most recent measurements at certain times
+mrm_df_time <- function(df,time){
+  uni_dons <- unique(df$DONOR_ID)
+  data_mrm <- mrm_donor_time(df,uni_dons[1],time)
+  #for larger datasets, this is going to be very slow. I could not figure out a faster way given the time we had left to finish
+  # so i would recommend finding a better way than using a for loop
+  for(i in 2:(length(uni_dons))){
+    temp_vec <- mrm_donor_time(df, uni_dons[i], time)
+    data_mrm <- rbind(data_mrm,temp_vec)
   }
-  
-  else{
-    stop("Input is not a data frame")
-  }
+  data_mrm <- data_mrm[rowSums(is.na(data_mrm)) != ncol(data_mrm),] #removes empty rows
+  return(data_mrm)
 }
+
+#this function creates a data frame of the most recent measurements as discrete times
+# it differs from the others because it will include the measurements from previous time,
+# but it is still the most recent at those discrete times
+mrm_df <- function(df){
+  times <- c(0,3,6,12,18,24,36,48,72)
+  df_all <- data.frame()
+  for(i in 1:length(times)){
+    df_temp <- mrm_df_time(df,times[i])
+    df_all <- rbind(df_all,df_temp)
+  }
+  df_all <- df_all[!duplicated(df_all),]
+  return(df_all)
+}
+
 
 #function that given the donor id and duration time, outputs the row of measurements
 #from that dataframe at the same or closest time before duration given
