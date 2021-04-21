@@ -114,32 +114,26 @@ var_missing <- function(df){
 }
 
 #function that does the same as missing variables but sorts it by age group
-var_missing_AG <- function(df){
-  if(is.data.frame(df) == TRUE){
-    if(c("age.group") %in% names(df) == TRUE){
-      df.0to6Months <- df[which(df$age.group == "0-6 months"),]
-      df.6to12Months <- df[which(df$age.group == "6-12 months"),]
-      df.1to3Years <- df[which(df$age.group == "1-3 years"),]
-      df.3to6Years <- df[which(df$age.group == "3-6 years"),]
-      df.6to12Years <- df[which(df$age.group == "6-12 years"),]
-      df.12plusYears <- df[which(df$age.group == "12+ years"),]
-      list_DF <- list(df.0to6Months,df.6to12Months,df.1to3Years,df.3to6Years,df.6to12Years,df.12plusYears)
-      varmat_age <- matrix(data = NA, nrow = (length(list_DF)), ncol = ncol(df))
-      for(i in 1:length(list_DF)){
-        varmat_age[i,] <- var_missing(list_DF[[i]]) #creates matrix of % var missing by age group
-      }
-      tot_missing <- var_missing(df)
-      tot_var <- rbind(varmat_age,tot_missing)  #combines age group matrix with total % missing
-      rownames(tot_var) <- c("0-6 months","6-12 months","1-3 years","3-6 years","6-12 years","12+ years","Total Missing")
-      return(tot_var)
-    }
-    else{
-      stop("Does not contain age group")
-    }
+var_missing_dur <- function(df){
+  df.0dur <- df[which(df$Duration <= 0),]
+  df.3dur <- df[which(df$Duration <= 3),]
+  df.6dur <- df[which(df$Duration <= 6),]
+  df.12dur <- df[which(df$Duration <= 12),]
+  df.18dur <- df[which(df$Duration <= 18),]
+  df.24dur <- df[which(df$Duration <= 24),]
+  df.36dur <- df[which(df$Duration <= 36),]
+  df.48dur <- df[which(df$Duration <= 48),]
+  df.72dur <- df[which(df$Duration <= 72),]
+  
+  list_DF <- list(df.0dur,df.3dur,df.6dur,df.12dur,df.18dur,df.24dur,df.36dur,df.48dur,df.72dur)
+  varmat_dur <- matrix(data = NA, nrow = (length(list_DF)), ncol = ncol(df))
+  for(i in 1:length(list_DF)){
+    varmat_dur[i,] <- var_missing(list_DF[[i]]) #creates matrix of % var missing by age group
   }
-  else{
-    stop("Input is not a data frame")
-  }
+  tot_missing <- var_missing(df)
+  tot_var <- rbind(varmat_dur,tot_missing)  #combines duration matrix with total % missing
+  rownames(tot_var) <- c("Time <= 0 hours","Time <= 3 hours","Time <= 6 hours","Time <= 12 hours","Time <= 18 hours","Time <= 24 hours","Time <= 36 hours","Time <= 48 hours","Time <= 72 hours","Total Missing")
+  return(tot_var)
 }
 
 #returns a vector of the most recent measurements for that donor at that time
