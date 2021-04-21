@@ -106,12 +106,9 @@ df.24dur = subset(df.24dur, select = -c(Mitral.valve.insufficiency_2,Aortic.valv
 
 
 
-#make separate dataframes so regression model is at different discrete duration times
-#times are chosen based on sample size, so 6 hours is ~100 observations
 
 
-
-## Splitting training and test data for 6 hours
+## Splitting training and test data for 24 hours
 df_2 <- df.24dur[,-2]
 sample_2 <- sample.int(n = nrow(df_2), size = floor(.80*nrow(df_2)), replace = F)
 train_2 <- df_2[sample_2, ]
