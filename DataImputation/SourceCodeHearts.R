@@ -113,7 +113,7 @@ var_missing <- function(df){
   }
 }
 
-#function that does the same as missing variables but sorts it by age group
+#function that does the same as missing variables but sorts it by duration group
 var_missing_dur <- function(df){
   df.0dur <- df[which(df$Duration <= 0),]
   df.3dur <- df[which(df$Duration <= 3),]
