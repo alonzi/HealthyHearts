@@ -1,3 +1,5 @@
+#this file gets the range of each variable in the labpanels dataset
+
 data_dir = "C:/Users/student/Documents/Healthy Hearts"
 setwd(data_dir)
 
