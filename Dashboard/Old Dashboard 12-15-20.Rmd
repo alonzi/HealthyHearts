@@ -1,0 +1,866 @@
+---
+title: "Healthy Hearts Longitudinal Study"
+date: "12/15/2020"
+output: 
+  html_document:
+    toc: true
+    toc_float:
+      collapsed: false
+      smooth_scroll: false
+theme: lumen
+---
+
+#Setup and Loading Packages
+```{r setup, include = FALSE}
+require("knitr")
+data_dir = "C:/Users/student/Documents/Healthy Hearts"
+setwd(data_dir)
+
+#---------------------------------------------------------------------------#
+# Load Required Packages
+#---------------------------------------------------------------------------#
+
+library(dplyr)
+library(plyr)
+library(ggplot2)
+library(tidyverse)
+library(GGally)
+library(ggpubr)
+library("readxl")
+require(data.table)
+library(lubridate)
+require(ggplot2)
+
+```
+
+#Reading in Data
+```{r}
+#---------------------------------------------------------------------------#
+# Read in data
+#---------------------------------------------------------------------------#
+
+setwd(data_dir)
+data <- read_csv("full7100withduration.csv")
+#get values only from 24 hours before brain death and onward
+data.after.BD <- data[which(data$Duration>=-24),]
+
+#get age groups from donor data file
+donor.data <- read_csv("Donor_Data.csv")
+donor.info <- donor.data[,c("DONOR_ID","age.group","age")]
+
+data.after.BD <- merge(data.after.BD, donor.info, by="DONOR_ID")
+
+ranges <- read_xlsx("variable_ranges.xlsx")
+```
+
+#Grouping by Duration and Age
+```{r}
+#---------------------------------------------------------------------------#
+# Bin duration and age groups
+#---------------------------------------------------------------------------#
+
+#binning duration
+data.after.BD$Duration.group <- rep(NA, nrow(data.after.BD))
+
+data.after.BD <-mutate(data.after.BD, Duration.group = case_when(
+  data.after.BD$Duration < 0 & data.after.BD$Duration >= -24 ~ "-24-0",
+  data.after.BD$Duration < 6 & data.after.BD$Duration >= 0 ~ "0-6",
+  data.after.BD$Duration < 12 & data.after.BD$Duration >= 6 ~ "06-12",
+  data.after.BD$Duration < 18 & data.after.BD$Duration >= 12 ~ "12-18",
+  data.after.BD$Duration < 24 & data.after.BD$Duration >= 18 ~ "18-24",
+  data.after.BD$Duration < 36 & data.after.BD$Duration >= 24 ~ "24-36",
+  data.after.BD$Duration < 48 & data.after.BD$Duration >= 36 ~ "36-48",
+  data.after.BD$Duration >= 48 ~ "48+"
+))
+
+data.after.BD$Duration.group <- as.factor(data.after.BD$Duration.group)
+data.after.BD$DONOR_ID <- as.factor(data.after.BD$DONOR_ID)
+
+#separating data for specific age groups for variables with different normal ranges for ages
+data_less_6months = data.after.BD[which(data.after.BD$age.group == "0-6 months"), ]
+data_6_12months = data.after.BD[which(data.after.BD$age.group == "6-12 months"), ]
+data_1_3years = data.after.BD[which(data.after.BD$age.group == "1-3 years"), ]
+data_3_6years = data.after.BD[which(data.after.BD$age.group == "3-6 years"), ]
+data_6_12years = data.after.BD[which(data.after.BD$age.group == "6-12 years"), ]
+data_more_12years = data.after.BD[which(data.after.BD$age.group == "12+ years"), ]
+data_less_10years = data.after.BD[which(data.after.BD$age < 10),]
+data_more_10years = data.after.BD[which(data.after.BD$age >= 10),]
+
+```
+
+#Creating the Function to Compare Normal and Abnormal Measurements
+```{r}
+#---------------------------------------------------------------------------#
+# Plots - Compare abnormal/normal measurements at each binned duration
+#---------------------------------------------------------------------------#
+
+#function - can be repeated for each variable
+#requires downloading sheet 2 of variable ranges as a csv and renaming it variable_ranges.csv
+#Creatinine and Bilirubin must be done manually
+proportion_normal_bar <- function(variable) {
+  temp <- data.after.BD
+  i <- grep(variable, colnames(temp))
+  
+  temp$classification <- rep(NA, nrow(temp))
+  
+  temp <-mutate(temp, classification = case_when(
+    temp[,i ] < ranges[which(ranges$variable == variable & ranges$age_group == "0-6 months"),]$lower | temp[,i ] > ranges[which(ranges$variable == variable & ranges$age_group == "0-6 months"),]$upper & temp$age.group == "0-6 months" ~ "Abnormal",
+    temp[,i ] >= ranges[which(ranges$variable == variable & ranges$age_group == "0-6 months"),]$lower & temp[,i ] <= ranges[which(ranges$variable == variable & ranges$age_group == "0-6 months"),]$upper  & temp$age.group == "0-6 months"~ "Normal",
+    
+    temp[,i ] < ranges[which(ranges$variable == variable & ranges$age_group == "6-12 months"),]$lower | temp[,i ] > ranges[which(ranges$variable == variable & ranges$age_group == "6-12 months"),]$upper & temp$age.group == "6-12 months" ~ "Abnormal",
+    temp[,i ] >= ranges[which(ranges$variable == variable & ranges$age_group == "6-12 months"),]$lower & temp[,i ] <= ranges[which(ranges$variable == variable & ranges$age_group == "6-12 months"),]$upper  & temp$age.group == "6-12 months"~ "Normal",
+      
+    temp[,i ] < ranges[which(ranges$variable == variable & ranges$age_group == "1-3 years"),]$lower | temp[,i ] > ranges[which(ranges$variable == variable & ranges$age_group == "1-3 years"),]$upper & temp$age.group == "1-3 years" ~ "Abnormal",
+    temp[,i ] >= ranges[which(ranges$variable == variable & ranges$age_group == "1-3 years"),]$lower & temp[,i ] <= ranges[which(ranges$variable == variable & ranges$age_group == "1-3 years"),]$upper  & temp$age.group == "1-3 years"~ "Normal",
+      
+    temp[,i ] < ranges[which(ranges$variable == variable & ranges$age_group == "3-6 years"),]$lower | temp[,i ] > ranges[which(ranges$variable == variable & ranges$age_group == "3-6 years"),]$upper & temp$age.group == "3-6 years" ~ "Abnormal",
+    temp[,i ] >= ranges[which(ranges$variable == variable & ranges$age_group == "3-6 years"),]$lower & temp[,i ] <= ranges[which(ranges$variable == variable & ranges$age_group == "3-6 years"),]$upper  & temp$age.group == "3-6 years"~ "Normal",
+      
+    temp[,i ] < ranges[which(ranges$variable == variable & ranges$age_group == "6-12 years"),]$lower | temp[,i ] > ranges[which(ranges$variable == variable & ranges$age_group == "6-12 years"),]$upper & temp$age.group == "6-12 years" ~ "Abnormal",
+    temp[,i ] >= ranges[which(ranges$variable == variable & ranges$age_group == "6-12 years"),]$lower & temp[,i ] <= ranges[which(ranges$variable == variable & ranges$age_group == "6-12 years"),]$upper  & temp$age.group == "6-12 years"~ "Normal",
+      
+    temp[,i ] < ranges[which(ranges$variable == variable & ranges$age_group == "12+ years"),]$lower | temp[,i ] > ranges[which(ranges$variable == variable & ranges$age_group == "12+ years"),]$upper & temp$age.group == "12+ years" ~ "Abnormal",
+    temp[,i ] >= ranges[which(ranges$variable == variable & ranges$age_group == "12+ years"),]$lower & temp[,i ] <= ranges[which(ranges$variable == variable & ranges$age_group == "12+ years"),]$upper  & temp$age.group == "12+ years"~ "Normal",
+    
+      ))
+  plot <- ggarrange(ggplot(data=subset(temp[which(temp$Accepted == "Yes"),], !is.na(classification)), aes(x=Duration.group, fill=classification, na.rm = TRUE))+geom_bar(position="fill") + ggtitle("Accepted Donors") + xlab("Time since Brain Death (hours)"), 
+            ggplot(data=subset(temp[which(temp$Accepted == "No"),], !is.na(classification)), aes(x=Duration.group, fill=classification, na.rm = TRUE))+geom_bar(position="fill") + ggtitle("Rejected Donors")+ xlab("Time since Brain Death (hours)"), 
+            nrow = 1, ncol = 2)
+  
+  plot <- annotate_figure(plot,
+                  top = text_grob(paste0("Proportion of Normal & Abnormal ", variable, " measurements over time"), color = "#00BFC4", face = "bold", size = 16)
+  )
+  
+  temp <- mutate(temp, Accepted = case_when(
+    temp$Accepted == "Yes" ~ "Accepted",
+    temp$Accepted == "No" ~ "Rejected"
+  ))
+  
+  return(list(bar = plot,name = variable,table = ftable(table(temp$Accepted,temp$classification, temp$Duration.group))))
+}
+
+```
+
+#Creating the Function to Produce Boxplots by Age
+```{r}
+#---------------------------------------------------------------------------#
+# Boxplots by age
+#---------------------------------------------------------------------------#
+
+#again, have to manually do Creatinine
+boxplot_age <- function(var) {
+  ages <- unique(ranges[which(ranges$variable == var),]$age_group)
+  index <- 0
+  unit <- slice_head(ranges[which(ranges$variable == var),])$units
+  
+  for (a in ages) {
+    index <- index + 1
+    min.range <- ranges[which(ranges$variable == var & ranges$age_group == a),]$lower
+    max.range <- ranges[which(ranges$variable == var & ranges$age_group == a),]$upper
+    
+    A.box <- ggplot(data = data.after.BD[which(data.after.BD$age.group == a & data.after.BD$Accepted == "Yes"),], aes_string(x = "Duration.group", y = var, fill="Duration.group")) + scale_fill_grey(start = 0.9, end = 0.1) +
+      geom_boxplot() + ylab(paste0(a, " (", unit, ")")) + geom_hline(yintercept = min.range, linetype="dashed", color = "red") +geom_hline(yintercept = max.range, linetype="dashed", color = "red") + stat_summary(geom = "point", fun = mean, color = "red")+
+      theme(axis.title.x = element_blank(),
+            axis.text.x=element_blank(),
+            axis.ticks.x=element_blank())+ 
+      labs(fill = "Hours past Brain Death")
+    
+    assign(paste0("A",index), A.box )
+    
+    R.box <- ggplot(data = data.after.BD[which(data.after.BD$age.group == a & data.after.BD$Accepted == "No"),], aes_string(x = "Duration.group", y = var, fill="Duration.group")) + scale_fill_grey(start = 0.9, end = 0.1) + 
+      geom_boxplot() + ylab(paste0(a, " (", unit, ")"))+ geom_hline(yintercept = min.range, linetype="dashed", color = "red") +geom_hline(yintercept = max.range, linetype="dashed", color = "red") + stat_summary(geom = "point", fun = mean, color = "red")+
+      theme(axis.title.x = element_blank(),
+        axis.text.x=element_blank(),
+            axis.ticks.x=element_blank())+ 
+      labs(fill = "Hours past Brain Death")
+    
+    assign(paste0("R",index), R.box )
+    
+  }
+  
+  plot <- ggarrange(A1, A2, A3, A4, A5, A6, R1, R2, R3, R4, R5, R6, nrow = 2, ncol = 6, common.legend = TRUE)
+  plot <- annotate_figure(plot,
+                  top = text_grob(paste0("Boxplots of ", var, " measurements by age"), color = "blue", face = "bold", size = 16),
+                  left = text_grob("Accepted Donors", color = "blue", rot=90, y=0.6)
+  )
+  plot <- annotate_figure(plot,
+                          left = text_grob("Rejected Donors", color = "blue", rot=90, y=0.25, vjust = 2),
+                          )
+  
+  return(plot)
+  
+}
+
+```
+
+#Creating the Function to Analyze Last Recorded Values
+```{r}
+#---------------------------------------------------------------------------#
+# Function maxval_info
+# takes in data, variable name, min normal range value, & max normal range value
+# prints box plot and gets average last value and % of donors within normal ranges
+#---------------------------------------------------------------------------#
+
+maxval_info <- function(d, var_name, minr=0, maxr=0) {
+  #removing n/a vals 
+  data_var = d[!is.na(d[var_name]),]
+  
+  #getting min and max range values
+  if(minr == 0 & maxr == 0){
+    min_range_val = slice_head(ranges[which(ranges$variable == var_name),])$lower
+    max_range_val = slice_head(ranges[which(ranges$variable == var_name),])$upper
+  }
+  else{ 
+    min_range_val = minr
+    max_range_val = maxr
+  }
+  
+  #separating accepted and not accepted data
+  data_accepted = data_var[which(data_var$Accepted == "Yes"), ] 
+  data_non_accepted = data_var[which(data_var$Accepted == "No"),]
+  
+  #getting donor IDs for accepted & not accepted
+  data_var_names_acc = as.array(names(table(data_accepted$DONOR_ID)))
+  data_var_names_nonacc = as.array(names(table(data_non_accepted$DONOR_ID)))
+  
+  #getting last duration value for each donor for accepted and not accepted
+  group <- as.data.table(data_accepted)
+  max_dur_values_acc = group[group[, .I[which.max(Duration)], by=DONOR_ID]$V1]
+  max_dur_values_acc = max_dur_values_acc[[var_name]]
+  
+  group <- as.data.table(data_non_accepted)
+  max_dur_values_nonacc = group[group[, .I[which.max(Duration)], by=DONOR_ID]$V1]
+  max_dur_values_nonacc = max_dur_values_nonacc[[var_name]]
+   
+  #boxplot of last duration value for variable for both accepted and not accepted
+  boxplot(max_dur_values_acc, max_dur_values_nonacc, names=c("Accepted", "Not Accepted"), main=paste0("Last Measurement of ", var_name), 
+          ylab=ranges$units[which(ranges$variable == var_name)][1])
+  abline(h = min_range_val, col = "blue")
+  abline(h = max_range_val, col = "blue")
+  
+  #getting average last value for accepted and non accepted
+  mean_info = data.frame("Average Last Value", round(mean(max_dur_values_acc), digits=2), round(mean(max_dur_values_nonacc), digits=2))
+  
+  #getting percent of accepted donors within normal range
+  max_dur_values_acc = as.data.frame(max_dur_values_acc)
+  names(max_dur_values_acc)[1] <- "values"
+  
+  total_num_acc = nrow(max_dur_values_acc)
+  if(!is.null(max_range_val)){
+    max_dur_values_acc = as.data.frame(max_dur_values_acc[which(max_dur_values_acc$values <= max_range_val),])
+    names(max_dur_values_acc)[1] <- "values"
+  }
+  if(!is.null(min_range_val)){
+    max_dur_values_acc = as.data.frame(max_dur_values_acc[which(max_dur_values_acc$values >= min_range_val),])
+  }
+  num_acc = nrow(max_dur_values_acc)
+  perc_acc = num_acc / total_num_acc * 100
+  perc_acc = paste(round(perc_acc, digits=2), "%")
+  
+  #getting percent of not accepted donors within normal range
+  max_dur_values_nonacc = as.data.frame(max_dur_values_nonacc)
+  names(max_dur_values_nonacc)[1] <- "values"
+  
+  total_num_nonacc = nrow(max_dur_values_nonacc)
+  if(!is.null(max_range_val)){
+    max_dur_values_nonacc = as.data.frame(max_dur_values_nonacc[which(max_dur_values_nonacc$values <= max_range_val),])
+    names(max_dur_values_nonacc)[1] <- "values"
+  }
+  if(!is.null(min_range_val)){
+    max_dur_values_nonacc = as.data.frame(max_dur_values_nonacc[which(max_dur_values_nonacc$values >= min_range_val),])
+  }
+  num_nonacc = nrow(max_dur_values_nonacc)
+  perc_nonacc = num_nonacc / total_num_nonacc * 100
+  perc_nonacc = paste(round(perc_nonacc, digits=2), "%")
+
+  #arranging stats in table  
+  range_info = data.frame("% of Donors with Last Measurement in Range", perc_acc, perc_nonacc)
+  names(mean_info) = c("", "Accepted Donors", "Not Accepted Donors")
+  names(range_info) = c("", "Accepted Donors", "Not Accepted Donors")
+  var_info = rbind(mean_info, range_info)
+  print(var_info)
+}
+
+```
+
+#Creating the Function to Analyze Minimum and Maximum Recorded Values
+```{r}
+#---------------------------------------------------------------------------#
+# Function extval_info
+# takes in data, variable name, min normal range value, & max normal range value
+# prints box plot and gets average maximum and minimum value and % of donors 
+# with max and min within normal ranges
+#---------------------------------------------------------------------------#
+
+extval_info <- function(d, var_name, minr=0, maxr=0){
+  var = enquo(var_name)
+  unit = slice_head(ranges[which(ranges$variable == as.character(var)),])$units
+  if(minr == 0 & maxr ==0){
+    min_range_val = slice_head(ranges[which(ranges$variable == as.character((as.list(var))[2])),])$lower
+    max_range_val = slice_head(ranges[which(ranges$variable == as.character((as.list(var))[2])),])$upper
+  }
+  else{ 
+    min_range_val = minr
+    max_range_val = maxr
+  }
+  
+  #getting table of unique donor IDs, accpted y/n, and var min/max
+  extreme.table = d %>% 
+    group_by(DONOR_ID) %>% 
+    dplyr::summarize(Accepted = Accepted[1], 
+                     min = min(!!var, na.rm=TRUE), 
+                     max = max(!!var, na.rm=TRUE) )
+  
+  #getting maximum variable value for each donor for accepted and not accepted
+  max_values_acc = extreme.table$max[which(extreme.table$Accepted == "Yes")]
+  max_values_nonacc = extreme.table$max[which(extreme.table$Accepted == "No")]
+  #getting minimum variable value for each donor for accepted and not accepted
+  min_values_acc = extreme.table$min[which(extreme.table$Accepted == "Yes")]
+  min_values_nonacc = extreme.table$min[which(extreme.table$Accepted == "No")]
+  
+  #boxplot of max variable value for variable for both accepted and not accepted
+  boxplot(max_values_acc, max_values_nonacc, names=c("Accepted", "Not Accepted"), 
+          main=paste0("Max Measurements of ", var[2]),  ylab=unit)
+  abline(h = min_range_val, col = "blue")
+  abline(h = max_range_val, col = "blue")
+  
+  #boxplot of min variable value for variable for both accepted and not accepted
+  boxplot(min_values_acc, min_values_nonacc, names=c("Accepted", "Not Accepted"), 
+          main=paste0("Min Measurements of ", var[2]),  ylab=unit)
+  abline(h = min_range_val, col = "blue")
+  abline(h = max_range_val, col = "blue")
+  
+  #getting percent of accepted donors with max within normal range
+  max_values_acc = as.data.frame(max_values_acc)
+  names(max_values_acc)[1] <- "values"
+  total_num_max_acc = nrow(max_values_acc)
+  
+  if(!is.null(max_range_val)){
+    max_values_acc = as.data.frame(max_values_acc[which(max_values_acc$values <= 
+                                                          max_range_val),])
+    names(max_values_acc)[1] <- "values"
+  }
+  if(!is.null(min_range_val)){
+    max_values_acc = as.data.frame(max_values_acc[which(max_values_acc$values >= 
+                                                          min_range_val),])
+  }
+  num_max_acc = nrow(max_values_acc)
+  perc_max_acc = num_max_acc / total_num_max_acc * 100
+  perc_max_acc = paste(round(perc_max_acc, digits=2), "%")
+  
+  #getting percent of accepted donors with min within normal range
+  min_values_acc = as.data.frame(min_values_acc)
+  names(min_values_acc)[1] <- "values"
+  
+  total_num_min_acc = nrow(min_values_acc)
+  if(!is.null(max_range_val)){
+    min_values_acc = as.data.frame(min_values_acc[which(min_values_acc$values <= 
+                                                          max_range_val),])
+    names(min_values_acc)[1] <- "values"
+  }
+  if(!is.null(min_range_val)){
+    min_values_acc = as.data.frame(min_values_acc[which(min_values_acc$values >= 
+                                                          min_range_val),])
+  }
+  num_min_acc = nrow(min_values_acc)
+  perc_min_acc = num_min_acc / total_num_min_acc * 100
+  perc_min_acc = paste(round(perc_min_acc, digits=2), "%")
+  
+  #getting percent of not accepted donors with max within normal range
+  max_values_nonacc = as.data.frame(max_values_nonacc)
+  names(max_values_nonacc)[1] <- "values"
+  
+  total_num_max_nonacc = nrow(max_values_nonacc)
+  if(!is.null(max_range_val)){
+    max_values_nonacc = as.data.frame(max_values_nonacc[which(max_values_nonacc$values <= 
+                                                                max_range_val),])
+    names(max_values_nonacc)[1] <- "values"
+  }
+  if(!is.null(min_range_val)){
+    max_values_nonacc = as.data.frame(max_values_nonacc[which(max_values_nonacc$values >= 
+                                                                min_range_val),])
+  }
+  num_max_nonacc = nrow(max_values_nonacc)
+  perc_max_nonacc = num_max_nonacc / total_num_max_nonacc * 100
+  perc_max_nonacc = paste(round(perc_max_nonacc, digits=2), "%")
+  
+  #getting percent of not accepted donors with min within normal range
+  min_values_nonacc = as.data.frame(min_values_nonacc)
+  names(min_values_nonacc)[1] <- "values"
+  
+  total_num_min_nonacc = nrow(min_values_nonacc)
+  if(!is.null(max_range_val)){
+    min_values_nonacc = as.data.frame(min_values_nonacc[which(min_values_nonacc$values <= 
+                                                                max_range_val),])
+    names(min_values_nonacc)[1] <- "values"
+  }
+  if(!is.null(min_range_val)){
+    min_values_nonacc = as.data.frame(min_values_nonacc[which(min_values_nonacc$values >= 
+                                                                min_range_val),])
+  }
+  num_min_nonacc = nrow(min_values_nonacc)
+  perc_min_nonacc = num_min_nonacc / total_num_min_nonacc * 100
+  perc_min_nonacc = paste(round(perc_min_nonacc, digits=2), "%")
+  
+  #getting average max and min values for accepted and for non accepted
+  mean_max_info = data.frame("Average Max Value", 
+                             round(mean(as.numeric(max_values_acc[[1]])), digits=2), 
+                             round(mean(as.numeric(max_values_nonacc[[1]])), digits=2))
+  mean_min_info = data.frame("Average Min Value", 
+                             round(mean(as.numeric(min_values_acc[[1]])), digits=2), 
+                             round(mean(as.numeric(min_values_nonacc[[1]])), digits=2))
+  
+  #arranging stats in table  
+  range_max_info = data.frame("% of Donors with Max within Range", perc_max_acc, 
+                              perc_max_nonacc)
+  range_min_info = data.frame("% of Donors with Min within Range", perc_min_acc, 
+                              perc_min_nonacc)
+  names(mean_max_info) = c("", "Accepted Donors", "Not Accepted Donors")
+  names(mean_min_info) = c("", "Accepted Donors", "Not Accepted Donors")
+  names(range_max_info) = c("", "Accepted Donors", "Not Accepted Donors")
+  names(range_min_info) = c("", "Accepted Donors", "Not Accepted Donors")
+  var_info = rbind(mean_max_info, mean_min_info, range_max_info, range_min_info)
+  print(var_info)
+}
+
+```
+
+#Kidney Analysis
+##Creatinine
+```{r}
+#CREATININE proportion_normal_bar
+
+data.after.BD$Creatinine.group <- rep(NA, nrow(data.after.BD))
+data.after.BD <-mutate(data.after.BD, Creatinine.group = case_when(
+  data.after.BD$CREATININE < 0.5 | data.after.BD$CREATININE > 0.9 & data.after.BD$age >= 10 ~ "Abnormal",
+  data.after.BD$CREATININE >= 0.5 & data.after.BD$CREATININE <= 0.9 & data.after.BD$age >= 10 ~ "Normal",
+  data.after.BD$CREATININE > 0.5 & data.after.BD$age < 10 ~ "Abnormal",
+  data.after.BD$CREATININE <= 0.5 & data.after.BD$age < 10 ~ "Normal"
+))
+
+Creat.A <- ggplot(data=subset(data.after.BD[which(data.after.BD$Accepted == "Yes"),], !is.na(Creatinine.group)), aes(x=Duration.group, fill=Creatinine.group, na.rm = TRUE))+geom_bar(position="fill")+ ggtitle("Accepted Donors")+xlab("Time since Brain Death (hours)")+labs(fill="classification")
+Creat.R <- ggplot(data=subset(data.after.BD[which(data.after.BD$Accepted == "No"),], !is.na(Creatinine.group)), aes(x=Duration.group, fill=Creatinine.group, na.rm = TRUE))+geom_bar(position="fill")+ ggtitle("Rejected Donors")+xlab("Time since Brain Death (hours)")+labs(fill = "classification")
+
+plot <- ggarrange(Creat.A, Creat.R, nrow = 1, ncol = 2)
+annotate_figure(plot, top = text_grob(paste0("Proportion of Normal & Abnormal Creatinine measurements over time"), 
+                                      color = "#00BFC4", face = "bold", size = 16) )
+"Creatinine"
+ftable(table(data.after.BD$Accepted,data.after.BD$Creatinine.group, data.after.BD$Duration.group))
+
+
+
+#CREATININE boxplot_age
+
+Creat.box.A1 <-ggplot(data = data.after.BD[which(data.after.BD$age < 10 & data.after.BD$Accepted == "Yes"),], aes(x = Duration.group, y = CREATININE, fill=Duration.group)) + scale_fill_grey(start = 0.9, end = 0.1) + 
+  geom_boxplot() + ylab("CREATININE (mg/dL)") + geom_hline(yintercept = 0.5, linetype="dashed", color = "red")  + stat_summary(geom = "point", fun = mean, color = "red") + 
+  coord_cartesian(ylim = c(0,5)) + 
+  theme(axis.title.x = element_blank(),
+        axis.text.x=element_blank(),
+        axis.ticks.x=element_blank())+ 
+  labs(fill = "Hours past Brain Death")
+Creat.box.A2 <-ggplot(data = data.after.BD[which(data.after.BD$age >= 10 & data.after.BD$Accepted == "Yes"),], aes(x = Duration.group, y = CREATININE, fill=Duration.group)) + scale_fill_grey(start = 0.9, end = 0.1) + 
+  geom_boxplot() + ylab("CREATININE (mg/dL)") + geom_hline(yintercept = 0.5, linetype="dashed", color = "red") +geom_hline(yintercept = 0.9, linetype="dashed", color = "red") + stat_summary(geom = "point", fun = mean, color = "red") + 
+  coord_cartesian(ylim = c(0,5))+ 
+  theme(axis.title.x = element_blank(),
+        axis.text.x=element_blank(),
+        axis.ticks.x=element_blank())+ 
+  labs(fill = "Hours past Brain Death")
+Creat.box.R1 <- ggplot(data = data.after.BD[which(data.after.BD$age < 10 & data.after.BD$Accepted == "No"),], aes(x = Duration.group, y = CREATININE, fill=Duration.group)) + scale_fill_grey(start = 0.9, end = 0.1) + 
+  geom_boxplot() + ylab("CREATININE (mg/dL)") + geom_hline(yintercept = 0.5, linetype="dashed", color = "red") + stat_summary(geom = "point", fun = mean, color = "red") + 
+  coord_cartesian(ylim = c(0,5))+ 
+  theme(axis.title.x = element_blank(),
+        axis.text.x=element_blank(),
+        axis.ticks.x=element_blank())+ 
+  labs(fill = "Hours past Brain Death")
+Creat.box.R2 <- ggplot(data = data.after.BD[which(data.after.BD$age >= 10  & data.after.BD$Accepted == "No"),], aes(x = Duration.group, y = CREATININE, fill=Duration.group)) + scale_fill_grey(start = 0.9, end = 0.1) + 
+  geom_boxplot() + ylab("CREATININE (mg/dL)") + geom_hline(yintercept = 0.5, linetype="dashed", color = "red") +geom_hline(yintercept = 0.9, linetype="dashed", color = "red") + stat_summary(geom = "point", fun = mean, color = "red") + 
+  coord_cartesian(ylim = c(0,5))+ 
+  theme(axis.title.x = element_blank(),
+        axis.text.x=element_blank(),
+        axis.ticks.x=element_blank())+ 
+  labs(fill = "Hours past Brain Death")
+
+plot <- ggarrange(Creat.box.A1, Creat.box.A2, Creat.box.R1, Creat.box.R2, nrow = 2, ncol = 2, common.legend = TRUE)
+
+plot <- annotate_figure(plot,
+                        top = text_grob(paste0("Boxplots of Creatinine measurements by age"), color = "blue", face = "bold", size = 16),
+                        left = text_grob("Accepted Donors", color = "blue", rot=90, y=0.6)
+)
+annotate_figure(plot,
+                left = text_grob("Rejected Donors", color = "blue", rot=90, y=0.25, vjust = 2),
+)
+
+
+
+#CREATININE maxval_info for > 10 and < 10
+maxval_info(data_less_10years, "CREATININE", 0, 0.5)
+maxval_info(data_more_10years, "CREATININE", 0.5, 0.9)
+
+
+
+#CREATININE extval_info for > 10 and < 10
+extval_info(data_less_10years, CREATININE, 0, 0.5)
+extval_info(data_more_10years, CREATININE, 0.5, 0.9)
+
+```
+##Sodium 170
+```{r}
+proportion_normal_bar("SODIUM170")$bar
+proportion_normal_bar("SODIUM170")$name
+proportion_normal_bar("SODIUM170")$table
+
+boxplot_age("SODIUM170")
+
+maxval_info(data.after.BD, "SODIUM170")
+
+extval_info(data.after.BD, SODIUM170)
+
+```
+##Potassium
+```{r}
+proportion_normal_bar("POTASSIUM")$bar
+proportion_normal_bar("POTASSIUM")$name
+proportion_normal_bar("POTASSIUM")$table
+
+boxplot_age("POTASSIUM")
+
+maxval_info(data.after.BD, "POTASSIUM")
+
+extval_info(data.after.BD, POTASSIUM)
+
+```
+
+#Lungs Analysis
+##pH
+```{r}
+proportion_normal_bar("ABG_PH")$bar
+proportion_normal_bar("ABG_PH")$name
+proportion_normal_bar("ABG_PH")$table
+
+boxplot_age("ABG_PH")
+
+maxval_info(data.after.BD, "ABG_PH")
+
+extval_info(data.after.BD, ABG_PH)
+
+```
+##PAO2
+```{r}
+proportion_normal_bar("PAO2")$bar
+proportion_normal_bar("PAO2")$name
+proportion_normal_bar("PAO2")$table
+
+boxplot_age("PAO2")
+
+maxval_info(data.after.BD, "PAO2")
+
+extval_info(data.after.BD, PAO2)
+
+```
+##PEEP
+```{r}
+proportion_normal_bar("PEEP")$bar
+proportion_normal_bar("PEEP")$name
+proportion_normal_bar("PEEP")$table
+
+boxplot_age("PEEP")
+
+maxval_info(data.after.BD, "PEEP")
+
+extval_info(data.after.BD, PEEP)
+
+```
+##HGB
+```{r}
+proportion_normal_bar("HGB")$bar
+proportion_normal_bar("HGB")$name
+proportion_normal_bar("HGB")$table
+
+boxplot_age("HGB")
+
+maxval_info(data.after.BD, "HGB")
+
+extval_info(data.after.BD, HGB)
+
+```
+##HCT
+```{r}
+proportion_normal_bar("HCT")$bar
+proportion_normal_bar("HCT")$name
+proportion_normal_bar("HCT")$table
+
+boxplot_age("HCT")
+
+maxval_info(data.after.BD, "HCT")
+
+extval_info(data.after.BD, HCT)
+```
+
+#Liver Analysis
+##SGOT
+```{r}
+proportion_normal_bar("SGOT")$bar
+proportion_normal_bar("SGOT")$name
+proportion_normal_bar("SGOT")$table
+
+boxplot_age("SGOT")
+
+maxval_info(data.after.BD, "SGOT")
+
+extval_info(data.after.BD, SGOT)
+
+```
+##SGPT
+```{r}
+proportion_normal_bar("SGPT")$bar
+proportion_normal_bar("SGPT")$name
+proportion_normal_bar("SGPT")$table
+
+boxplot_age("SGPT")
+
+maxval_info(data.after.BD, "SGPT")
+
+extval_info(data.after.BD, SGPT)
+
+```
+##Bilirubin
+```{r}
+#BILIRUBIN proportion_normal_bar
+
+data.after.BD$Bilirubin.group <- rep(NA, nrow(data.after.BD))
+data.after.BD <-mutate(data.after.BD, Bilirubin.group = case_when(
+  data.after.BD$BILIRUBIN >=1  | data.after.BD$BILIRUBIN_INDIRECT >= 1 ~ "Abnormal",
+  data.after.BD$BILIRUBIN < 1 | data.after.BD$BILIRUBIN_INDIRECT < 1 ~ "Normal"
+))
+
+Bil.A <- ggplot(data=subset(data.after.BD[which(data.after.BD$Accepted == "Yes"),], !is.na(Bilirubin.group)), aes(x=Duration.group, fill=Bilirubin.group, na.rm = TRUE))+geom_bar(position="fill")+ ggtitle("Accepted Donors")+xlab("Time since Brain Death (hours)")+labs(fill="classification")
+Bil.R <- ggplot(data=subset(data.after.BD[which(data.after.BD$Accepted == "No"),], !is.na(Bilirubin.group)), aes(x=Duration.group, fill=Bilirubin.group, na.rm = TRUE))+geom_bar(position="fill")+ ggtitle("Rejected Donors")+xlab("Time since Brain Death (hours)")+labs(fill="classification")
+plot <- ggarrange(Bil.A, Bil.R, nrow = 1, ncol = 2)
+annotate_figure(plot,
+                top = text_grob(paste0("Proportion of Normal & Abnormal Bilirubin measurements over time"), 
+                                color = "#00BFC4", face = "bold", size = 16)
+)
+
+"Bilirubin"
+ftable(table(data.after.BD$Accepted,data.after.BD$Bilirubin.group, data.after.BD$Duration.group))
+
+
+
+boxplot_age("BILIRUBIN")
+boxplot_age("BILIRUBIN_INDIRECT")
+
+maxval_info(data.after.BD, "BILIRUBIN")
+maxval_info(data.after.BD, "BILIRUBIN_INDIRECT")
+
+extval_info(data.after.BD, BILIRUBIN)
+extval_info(data.after.BD, BILIRUBIN_INDIRECT)
+
+```
+##Prothrombin
+```{r}
+proportion_normal_bar("PROTHROMBIN")$bar
+proportion_normal_bar("PROTHROMBIN")$name
+proportion_normal_bar("PROTHROMBIN")$table
+
+boxplot_age("PROTHROMBIN")
+
+maxval_info(data.after.BD, "PROTHROMBIN")
+
+extval_info(data.after.BD, PROTHROMBIN)
+
+```
+##INR
+```{r}
+proportion_normal_bar("INR")$bar
+proportion_normal_bar("INR")$name
+proportion_normal_bar("INR")$table
+
+boxplot_age("INR")
+
+maxval_info(data.after.BD, "INR")
+
+extval_info(data.after.BD, INR)
+
+```
+
+#Heart Analysis
+##Average Systolic Blood Pressure
+```{r}
+proportion_normal_bar("AVG_BP_SYST")$bar
+proportion_normal_bar("AVG_BP_SYST")$name
+proportion_normal_bar("AVG_BP_SYST")$table
+
+boxplot_age("AVG_BP_SYST")
+
+#AVG_BP_SYST maxval_info for each age group
+maxval_info(data_less_6months, "AVG_BP_SYST", 70, 90)
+maxval_info(data_6_12months, "AVG_BP_SYST", 80, 100)
+maxval_info(data_1_3years, "AVG_BP_SYST", 90, 105)
+maxval_info(data_3_6years, "AVG_BP_SYST", 95, 110)
+maxval_info(data_6_12years, "AVG_BP_SYST", 100, 120)
+maxval_info(data_more_12years, "AVG_BP_SYST", 100, 135)
+
+#AVG_BP_SYST extval_info for each age group
+extval_info(data_less_6months, AVG_BP_SYST, 70, 90)
+extval_info(data_6_12months, AVG_BP_SYST, 80, 100)
+extval_info(data_1_3years, AVG_BP_SYST, 90, 105)
+extval_info(data_3_6years, AVG_BP_SYST, 95, 110)
+extval_info(data_6_12years, AVG_BP_SYST, 100, 120)
+extval_info(data_more_12years, AVG_BP_SYST, 100, 135)
+
+```
+##Average Diastolic Blood Pressure
+```{r}
+proportion_normal_bar("AVG_BP_DIAST")$bar
+proportion_normal_bar("AVG_BP_DIAST")$name
+proportion_normal_bar("AVG_BP_DIAST")$table
+
+boxplot_age("AVG_BP_DIAST")
+
+#AVG_BP_DIAST maxval_info for each age group
+maxval_info(data_less_6months, "AVG_BP_DIAST", 45, 65)
+maxval_info(data_6_12months, "AVG_BP_DIAST", 55, 65)
+maxval_info(data_1_3years, "AVG_BP_DIAST", 55, 70)
+maxval_info(data_3_6years, "AVG_BP_DIAST", 60, 75)
+maxval_info(data_6_12years, "AVG_BP_DIAST", 60, 75)
+maxval_info(data_more_12years, "AVG_BP_DIAST", 65, 85)
+
+#AVG_BP_DIAST extval_info for each age group
+extval_info(data_less_6months, AVG_BP_DIAST, 45, 65)
+extval_info(data_6_12months, AVG_BP_DIAST, 55, 65)
+extval_info(data_1_3years, AVG_BP_DIAST, 55, 70)
+extval_info(data_3_6years, AVG_BP_DIAST, 60, 75)
+extval_info(data_6_12years, AVG_BP_DIAST, 60, 75)
+extval_info(data_more_12years, AVG_BP_DIAST, 65, 85)
+
+```
+##Average Pulse Range Start
+```{r}
+proportion_normal_bar("AVG_PULSE_RANGE_START")$bar
+proportion_normal_bar("AVG_PULSE_RANGE_START")$name
+proportion_normal_bar("AVG_PULSE_RANGE_START")$table
+
+boxplot_age("AVG_PULSE_RANGE_START")
+
+#AVG_PULSE_RANGE_START maxval_info for each age group
+maxval_info(data_less_6months, "AVG_PULSE_RANGE_START", 110, 160)
+maxval_info(data_6_12months, "AVG_PULSE_RANGE_START", 90, 160)
+maxval_info(data_1_3years, "AVG_PULSE_RANGE_START", 80, 150)
+maxval_info(data_3_6years, "AVG_PULSE_RANGE_START", 70, 120)
+maxval_info(data_6_12years, "AVG_PULSE_RANGE_START", 60, 110)
+maxval_info(data_more_12years, "AVG_PULSE_RANGE_START", 60, 100)
+
+#AVG_PULSE_RANGE_START extval_info for each age group
+extval_info(data_less_6months, AVG_PULSE_RANGE_START, 110, 160)
+extval_info(data_6_12months, AVG_PULSE_RANGE_START, 90, 160)
+extval_info(data_1_3years, AVG_PULSE_RANGE_START, 80, 150)
+extval_info(data_3_6years, AVG_PULSE_RANGE_START, 70, 120)
+extval_info(data_6_12years, AVG_PULSE_RANGE_START, 60, 110)
+extval_info(data_more_12years, AVG_PULSE_RANGE_START, 60, 100)
+
+```
+##CVP Int Range Start
+```{r}
+proportion_normal_bar("CVP_INT_RANGE_START")$bar
+proportion_normal_bar("CVP_INT_RANGE_START")$name
+proportion_normal_bar("CVP_INT_RANGE_START")$table
+
+boxplot_age("CVP_INT_RANGE_START")
+
+maxval_info(data.after.BD, "CVP_INT_RANGE_START")
+
+extval_info(data.after.BD, CVP_INT_RANGE_START)
+
+```
+##Troponin
+```{r}
+proportion_normal_bar("TROPONINI")$bar
+proportion_normal_bar("TROPONINI")$name
+proportion_normal_bar("TROPONINI")$table
+
+boxplot_age("TROPONINI")
+
+maxval_info(data.after.BD, "TROPONINI")
+
+extval_info(data.after.BD, TROPONINI)
+
+```
+##CKMB
+```{r}
+proportion_normal_bar("CKMB")$bar
+proportion_normal_bar("CKMB")$name
+proportion_normal_bar("CKMB")$table
+
+boxplot_age("CKMB")
+
+maxval_info(data.after.BD, "CKMB")
+
+extval_info(data.after.BD, CKMB)
+
+```
+
+##Inotropics
+###Dopamine
+```{r}
+
+
+maxval_info(data.after.BD, "Dopamine")
+
+extval_info(data.after.BD, Dopamine)
+
+```
+###Dobutamine
+```{r}
+
+maxval_info(data.after.BD, "Dobutamine")
+
+extval_info(data.after.BD, Dobutamine)
+
+```
+###Epinephrine
+```{r}
+
+maxval_info(data.after.BD, "Epinephrine")
+
+extval_info(data.after.BD, Epinephrine)
+
+```
+###Milrinone
+```{r}
+
+maxval_info(data.after.BD, "Milrinone")
+
+extval_info(data.after.BD, Milrinone)
+
+```
+###Vasopressin
+```{r}
+
+maxval_info(data.after.BD, "Vasopressin")
+
+extval_info(data.after.BD, Vasopressin)
+
+```
+###Norepinephrine
+```{r}
+
+maxval_info(data.after.BD, "Norepinephrine")
+
+extval_info(data.after.BD, Norepinephrine)
+
+```
+
+#Body
+##Body Temperature Range Start
+```{r}
+proportion_normal_bar("BODYTEMP_RANGE_START")$bar
+proportion_normal_bar("BODYTEMP_RANGE_START")$name
+proportion_normal_bar("BODYTEMP_RANGE_START")$table
+
+boxplot_age("BODYTEMP_RANGE_START")
+
+maxval_info(data.after.BD, "BODYTEMP_RANGE_START")
+
+extval_info(data.after.BD, BODYTEMP_RANGE_START)
+
+```
