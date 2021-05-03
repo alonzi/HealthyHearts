@@ -1,3 +1,6 @@
+#this file calculates duration in hours between brain death and the time the data was taken
+#from the file read in in line 12 and writes it to a csv file
+
 data_dir = "C:/Users/student/Documents/Healthy Hearts"
 setwd(data_dir)
 
