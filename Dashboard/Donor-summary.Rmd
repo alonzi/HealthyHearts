@@ -1,0 +1,306 @@
+---
+title: "Healthy Hearts Donor Measurement Data Analysis"
+#name: "John Bullock, Megan Grieco, Ian Pedersen, Wesley Roberson, Gracie Wright"
+date: "4/1/2021"
+output: 
+  html_document:
+    toc: true
+    number_sections: false
+    toc_float: 
+      collapsed: false
+      smooth_scroll: false
+theme: simplex
+---
+
+```{r setup, include = FALSE}
+#---------------------------------------------------------------------------#
+# Set path to data files
+# Required data files: 
+#   variable_ranges.xlsx
+#   Donor_Data.csv
+#   full7100withall.csv
+#---------------------------------------------------------------------------#
+data_dir = "C:/Users/student/Documents/Healthy Hearts"     # set path to data 
+data_dir = "."
+
+#-- Check for required layout code
+if(!file.exists("layout-results.Rmd")){
+  stop("The file layout-results.Rmd must be in the working directory")
+}
+
+#---------------------------------------------------------------------------#
+# Load Required Packages
+#---------------------------------------------------------------------------#
+library(knitr)
+library(readxl)
+library(kableExtra)
+library(tidyverse)
+
+#---------------------------------------------------------------------------#
+# knitr settings
+#---------------------------------------------------------------------------#
+knitr::opts_chunk$set(echo = FALSE)
+
+
+#---------------------------------------------------------------------------#
+# set plot theme
+#---------------------------------------------------------------------------#
+ggplot2::theme_set(theme_bw())
+
+```
+
+```{css css, echo = FALSE}
+# Table caption font
+caption {
+      color: #808080;
+      font-weight: bold;
+      font-size: 1.5em;
+    }
+```
+
+
+```{r load-data, include=FALSE, cache=FALSE}
+#-- Measurement Ranges
+variable_ranges = readxl::read_excel(file.path(data_dir, "variable_ranges.xlsx"))
+
+#-- Static donor data
+donor_data = read_csv(file.path(data_dir, "Donor_Data.csv"))
+
+#-- Measurement Data
+## Note: data should be only DONOR_ID, time, and relevant Measurement columns
+data = read_csv(file.path(data_dir, "full7100withall.csv")) %>% 
+  #select(-(DT:DOB)) %>% 
+  select(DONOR_ID, time = Duration, everything()) %>% # reorder and rename columns
+  filter(!is.na(time)) # remove observations with missing time
+```
+
+```{r transform-data, include=FALSE, cache = FALSE, dependson = "load-data"}
+#-- Set measurement variables of interest
+#vars = distinct(variable_ranges, variable)
+vars = c("ABG_PH", "AVG_BP_DIAST", "AVG_BP_SYST", "AVG_PULSE_RANGE_START",
+         "BILIRUBIN", "BILIRUBIN_INDIRECT", "BODYTEMP_RANGE_START", "CKMB", 
+         "CREATININE", "CVP_INT_RANGE_START", "Dobutamine", "Dopamine", 
+         "EF", "Epinephrine", "HCT", "HGB", "INR", "MELD", "Milrinone", "Norepinephrine",
+         "PAO2", "PEEP", "POTASSIUM", "PROTHROMBIN", "SCHWARTZ", "SGOT", "SGPT", "SODIUM170",
+         "TROPONINI", "Vasopressin")
+
+#-- transform data for analysis
+data_long = data %>% 
+  # keep relevant columns
+  select(DONOR_ID, time, any_of(vars)) %>% 
+  # convert to long format: {variable, value} (note: all variables must be numeric)
+  pivot_longer(any_of(vars), names_to = "variable", values_to = "value") %>% 
+  # remove missing measurement values
+  filter(!is.na(value)) %>% 
+  # add time bins
+  mutate(time_bin = cut(time, 
+                        breaks = c(-Inf, -24, 0, 6, 12, 18, 24, 36, 48, Inf), 
+                        labels = c("<-24", "-24-0", "0-6", "6-12", "12-18", "18-24",
+                                   "24-36", "36-48", "48+"), 
+                        right=FALSE,
+                        ordered_result = TRUE), .after = time) %>% 
+  # remove observations occurring long before brain death
+  filter(time > -24) %>% 
+  # add donor info (Accepted, age_group)
+  left_join(donor_data %>% select(DONOR_ID, Accepted, age_group = age.group, age), 
+            by="DONOR_ID") %>% 
+  mutate(age_group = case_when(  # add custom age range for CREATININE
+    variable == "CREATININE" & age < 10 ~ "<10",
+    variable == "CREATININE" & age >= 10 ~ ">=10",
+    TRUE ~ age_group
+    )) %>% 
+  select(-age) %>% 
+  # add normal measurement ranges
+  left_join(
+    variable_ranges %>% select(variable, age_group, lower, upper),
+    by = c("variable", "age_group")
+  ) %>%
+  # calculate if measurement is in normal range
+  mutate(classification = case_when(value < lower ~ "too low", 
+                            value > upper ~ "too high", 
+                            TRUE ~ "in range") %>% 
+           factor(levels = c("too high", "in range", "too low"))
+         #classification = ifelse(between(value, lower, upper), "Normal", "Abnormal")
+  ) %>% 
+  # clean variable values
+  mutate(Accepted = ifelse(Accepted == "Yes", "Accepted", "Rejected"),
+         age_group = factor(age_group,     # convert age_group to factor
+                            levels = c("0-6 months", "6-12 months",
+                                       "1-3 years", "3-6 years",
+                                       "6-12 years", "12+ years",
+                                       "<10", ">=10")))
+```
+
+
+
+```{r analysis-functions}
+options(scipen = 3)  # reduce use of scientific notation
+
+#-- Boxplots of measurements by donor age and Accepted/Rejected
+boxplot_age <- function(var, df = data_long, log=FALSE){
+  pp = df %>% 
+    filter(variable == !!var) %>% 
+    ggplot(aes(x = time_bin, y=value)) + 
+    geom_rect(aes(ymin=lower, ymax=upper, xmin=-Inf, xmax=Inf), fill="green", color=NA) + 
+    geom_boxplot(alpha=.5) + 
+    # stat_summary(geom = "point", fun = mean, color = "red") + 
+    facet_grid(Accepted ~ age_group) + 
+    labs(x = "Time since Brain Death (hours)", y = var) + 
+    guides(x =  guide_axis(angle = 45))
+  if(log) pp + scale_y_log10() else pp
+}
+
+#-- Compare abnormal/normal measurements at each binned time since brain death
+proportion_normal_bar <- function(var, df = data_long) {
+  df %>% 
+    filter(variable == !!var) %>% 
+    ggplot(aes(x=time_bin, fill=classification)) + 
+    geom_bar(position="fill") + 
+    facet_wrap(~Accepted) + 
+    scale_y_continuous(expand = c(0, .01)) + 
+    ggtitle(paste0("Prop. of Normal & Abnormal ", var, " measurements over time")) + 
+    labs(x = "Time since Brain Death (hours)",
+         fill = var) + 
+    scale_fill_manual(values = c("too high" = '#f6e8c3', "too low" = '#8c510a', 
+                                 "in range" = '#01665e')) + 
+    guides(x =  guide_axis(angle = 45)) + 
+    theme(plot.title = element_text(face="bold", color="black", size = 16), 
+          axis.title.y = element_blank()) 
+}
+
+
+#-- Normal/Abnormal frequency tables (by binned time since brain death)
+frequency_tables <- function(var, df = data_long){
+  tbls = df %>% 
+    filter(variable == !!var) %>% 
+    count(Accepted, classification, time_bin) %>% 
+    pivot_wider(names_from = time_bin, values_from=n) %>% 
+    split(f = .$Accepted) %>% map(~select(.x, -Accepted))
+  
+  for(i in 1:length(tbls)){
+    kableExtra::kbl(tbls[[i]], caption = str_c(names(tbls)[i], " Donors")) %>%
+        kableExtra::kable_styling(bootstrap_options = c("striped", "hover", 
+                                                        "condensed", "responsive")) %>% 
+      kableExtra::add_header_above(c(" " = 1, 
+                                     "Time since brain death (hrs)" = ncol(tbls[[i]])-1)) %>% 
+      print()
+  }
+  
+}
+
+
+#-- summary of donors' min, max, and last observations 
+donor_summary <- function(var, df = data_long, log=FALSE){
+  dsum = df %>% 
+    filter(variable == !!var) %>% 
+    group_by(DONOR_ID) %>% 
+    summarize(min = min(value), max = max(value), 
+              last_obs = value[time == max(time)], 
+              last_class = classification[time == max(time)],
+              n_high = sum(classification == "too high"), 
+              n_low = sum(classification == "too low"), 
+              n_normal = sum(classification == "in range"),
+              Accepted = Accepted[1], age_group = age_group[1], 
+                  lower=lower[1], upper=upper[1], # add static features
+              .groups="drop")   
+  
+  pp = dsum %>% 
+    pivot_longer(c(min, max, last_obs), names_to = "metric") %>% 
+    mutate(metric = factor(metric, c("min", "max", "last_obs"))) %>% 
+    mutate(metric = recode(metric, min = "Minimum", max = "Maximum", last_obs = "Last")) %>% 
+    ggplot() + 
+    geom_rect(aes(ymin=lower, ymax=upper, xmin=-Inf, xmax=Inf), fill="green", color=NA) + 
+    geom_boxplot(aes(Accepted, value, fill=Accepted)) + 
+    facet_grid(metric ~ age_group) + 
+    labs(y = var, fill = "Donor Type") + 
+    scale_fill_manual(values = c(Accepted = "#ffeda0", Rejected = "#f03b20")) + 
+    guides(x =  guide_axis(angle = 45)) + 
+    theme(axis.title.x = element_blank())
+  
+  if(log) pp + scale_y_log10() else pp
+}
+
+```
+
+
+```{r layout-functions}
+# The variable level analysis is structured in multiple tabs as defined in 
+#  layout-results.Rmd. This function runs layout-results.Rmd and puts the results
+#  in this file. 
+# Details: https://bookdown.org/yihui/rmarkdown-cookbook/child-document.html
+
+analyze <- function(var, var_name, log=FALSE){
+  if(missing(var_name)) var_name = var
+  res = knitr::knit_child(file.path(data_dir, 'layout-results.Rmd'), envir = environment(), quiet = TRUE)
+  cat(res, sep = '\n')  
+}
+```
+
+```{r cache-settings}
+#-- Cache dependencies indicating when to re-run analyze()
+analyze_deps = c("transform-data", "analysis-functions", "layout-functions")
+extra = file.mtime('layout-results.Rmd') # time when layout-results last changed
+knitr::opts_chunk$set(cache = FALSE,  # change this to FALSE if cache causes problems 
+                      cache.extra = extra, # ignore cache if layout-results.Rmd changes
+                      warning = FALSE) # don't print warning messages
+```
+
+
+
+# Kidney and Blood Analysis {.tabset .tabset-fade .tabset-pills}
+
+```{r kidney-and-blood-analysis, results = "asis", dependson=analyze_deps} 
+analyze("CREATININE", "Creatinine")
+analyze("SODIUM170", "Sodium 170", log=TRUE)
+analyze("POTASSIUM", "Potassium", log=TRUE)
+analyze("SCHWARTZ", "Schwartz Score")
+analyze("ABG_PH", "ABG pH")
+analyze("PAO2")
+analyze("PEEP")
+analyze("HGB")
+analyze("HCT")
+```
+
+
+# Liver Analysis {.tabset .tabset-fade .tabset-pills}
+
+```{r liver-analysis, results = "asis", dependson=analyze_deps}
+analyze("SGOT", log=TRUE)
+analyze("SGPT", log=TRUE)
+analyze("BILIRUBIN", "Bilirubin", log=TRUE) 
+analyze("BILIRUBIN_INDIRECT", "Bilirubin Indirect", log=TRUE) 
+analyze("PROTHROMBIN", "Prothrombin", log=TRUE)
+analyze("INR", log=TRUE)
+analyze("MELD", "MELD Score")
+```
+
+
+# Heart Analysis {.tabset .tabset-fade .tabset-pills} 
+
+```{r heart-analysis, results = "asis", dependson=analyze_deps}
+analyze("AVG_BP_SYST", "Average Systolic Blood Pressure")
+analyze("AVG_BP_DIAST", "Average Diastolic Blood Pressure")
+analyze("AVG_PULSE_RANGE_START", "Average Pulse Range Start")
+analyze("CVP_INT_RANGE_START", "CVP Int Range Start")
+analyze("TROPONINI", "Troponin", log=TRUE)
+analyze("CKMB", log=TRUE)
+```
+
+
+# Inotropics Analysis {.tabset .tabset-fade .tabset-pills}
+
+```{r inotropic-analysis, results = "asis", dependson=analyze_deps}
+analyze("Dopamine", log=TRUE)
+analyze("Dobutamine")
+analyze("Epinephrine", log=TRUE)
+analyze("Milrinone", log=TRUE)
+analyze("Vasopressin", log=TRUE)
+analyze("Norepinephrine", log=TRUE)
+```
+
+# Body Temp Analysis {.tabset .tabset-fade .tabset-pills}
+
+```{r temp-analysis, results = "asis", dependson=analyze_deps}
+analyze("BODYTEMP_RANGE_START", "Body Temperature Range Start")
+```
+

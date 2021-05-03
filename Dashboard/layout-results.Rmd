@@ -1,0 +1,25 @@
+<!-- Rmd code to run for each variable -->
+<!-- Requires the R objects: var, var_name, and log (and functions)-->
+
+## `r var_name` {.tabset .tabset-fade}
+
+### Boxplot
+```{r}
+boxplot_age(var, log=log)
+```
+
+### Normal/Abnormal
+```{r}
+proportion_normal_bar(var)
+```
+
+### Tables
+```{r, results='asis'}
+frequency_tables(var)
+```
+
+
+### Min/Max/Last
+```{r}
+donor_summary(var, log=log)
+```
