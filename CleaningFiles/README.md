@@ -5,6 +5,6 @@ These are the files that are used to clean the data
 * LabPanels ranges.R - gets the range of each variable in the labpanels dataset from Donornet-Shared/Donornet-Shared/LabPanels.tsv.gz and puts them in a new sheet in the file donor_ranges.xlsx
 * LabValues and LabPanels walkthrough.R - walks through the labvalues and labpanels data sets from the xlsx files DonorNet LabPanels.xlsx and DonorNet LabValues.xlsx, and, joining them with the crosswalk file STAR-shared/STAR-shared/cross-walk.csv, creates the files labpanels_crosswalk_joined.csv and labvalues_crosswalk_joined.csv
 * LabValues ranges.R - gets the range of each variable in the labvalues dataset from Donornet-Shared/Donornet-Shared/LabValues.tsv.gz and puts them in a new sheet in the file donor_ranges.xlsx
-* deceased_donor_data.R - 
-* indicators_initial.R - 
-* inotropic_initial.R -
+* deceased_donor_data.R - takes in donor characteristics info from deceased_donor_data.tsv, cleans it, joins it with the crosswalk, and creates files deceased_donor_cleaned.csv and crosswalk_joined_deceased_donor.csv
+* indicators_initial.R - gets data from INDICATORS.tsv, reads in STAR data from SAS Dataset-202009.zip, adds brain death and duration, and puts the variable ranges in a new sheet in the file donor_ranges.xlsx
+* inotropic_initial.R - renames misspelled medications, reads in STAR data from SAS Dataset-202009.zip, adds in weight and brain death, changes units to desired units, and puts the variable ranges in a new sheet in the file donor_ranges.xlsx
